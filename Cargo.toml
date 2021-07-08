@@ -1,0 +1,66 @@
+[package]
+name = "async-acme"
+version = "0.1.0"
+authors = ["daniel"]
+edition = "2018"
+
+description = "async ACME client for tls-alpn-01 challenge"
+license = "MIT"
+keywords = ["letsencrypt", "acme", "async", "alpn", "tls"]
+readme = "README.md"
+
+[dependencies]
+generic-async-http-client = "0.1"
+base64 =  "0.13"
+thiserror = "1.0"
+log = "0.4"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+
+futures-util = { version = "0.3", default-features = false }
+
+rustls = { version = "0.19", optional = true}
+ring = {version = "0.16", features = ["std"], optional = true} #used by rustls
+rcgen = { version = "0.8", default-features = false, optional = true} #uses ring
+
+openssl = { version = "0.10", optional = true }
+native-tls = { version = "0.2", optional = true }
+#picky # custom cert gen
+#easy_ssl # openssl cert gen
+#p12 = "0.2.0"
+
+x509-parser = { version = "0.9", default-features = false}
+
+async-std = {version="1.9.0",optional=true}
+tokio = {version = "1.6", optional=true}
+
+[features]
+use_rustls = ["generic-async-http-client/rustls", "rustls", "ring", "rcgen"]
+use_async_std = ["async-std", "generic-async-http-client/use_async_h1"]
+use_tokio = ["tokio/fs", "generic-async-http-client/use_hyper"]
+
+use_openssl = ["openssl","native-tls"]
+
+hyper_rustls = ["use_rustls", "use_tokio"]
+async_std_rustls = ["use_rustls", "use_async_std"]
+
+default = []
+
+[dev-dependencies]
+async-stream = "0.3.0"
+tokio = { version = "1.0", features = ["io-std", "macros", "net", "rt-multi-thread"] }
+hyper = { version = "0.14", features = ["full"] }
+futures-util = { version = "0.3.1", default-features = false }
+tokio-rustls = "0.22"
+pretty_env_logger = { version = "0.4.0", default-features = false }
+async-rustls = "0.2"
+
+[[example]]
+name = "hyper_rustls"
+path = "examples/hyper_rustls.rs"
+required-features = ["hyper_rustls"]
+
+[[example]]
+name = "async_rustls"
+path = "examples/async_rustls.rs"
+required-features = ["async_std_rustls"]

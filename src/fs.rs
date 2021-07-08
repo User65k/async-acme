@@ -1,0 +1,37 @@
+#[cfg(feature = "use_async_std")]
+pub use async_std::fs::{create_dir_all as cdall, read, write};
+#[cfg(feature = "use_tokio")]
+pub use tokio::fs::{create_dir_all, read, write};
+
+use std::path::Path;
+use std::io::{ErrorKind, Error};
+
+#[cfg(feature = "use_async_std")]
+pub async fn create_dir_all(a: impl AsRef<Path>) -> Result<(), Error> {
+    let p = a.as_ref();
+    let p = <(&async_std::path::Path)>::from(p);
+    cdall(p).await
+}
+
+pub(crate) async fn read_if_exist(
+    dir: impl AsRef<Path>,
+    file: impl AsRef<Path>,
+) -> Result<Option<Vec<u8>>, Error> {
+    let path = dir.as_ref().join(file);
+    match read(path).await {
+        Ok(content) => Ok(Some(content)),
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => Ok(None),
+            _ => Err(err.into()),
+        },
+    }
+}
+
+pub(crate) async fn write_file(
+    dir: impl AsRef<Path>,
+    file: impl AsRef<Path>,
+    contents: impl AsRef<[u8]>,
+) -> Result<(), Error> {
+    let path = dir.as_ref().join(file);
+    Ok(write(path, contents).await?)
+}
