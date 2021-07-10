@@ -38,3 +38,11 @@ pub fn get_cert_duration_left(x509_cert : &[u8]) -> Result<Duration,()> {
     let wait_secs = Duration::from_secs(valid_secs as u64);
     Ok(wait_secs)
 }
+
+#[cfg(not(any(feature = "use_rustls", feature = "use_openssl")))]
+mod dummy;
+#[cfg(not(any(feature = "use_rustls", feature = "use_openssl")))]
+pub use self::dummy::{EcdsaP256SHA256KeyPair,
+    sha256_hasher, sha256,
+    gen_acme_cert, CertBuilder};
+

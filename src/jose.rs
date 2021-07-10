@@ -4,6 +4,7 @@ use crate::crypto::{sha256, EcdsaP256SHA256KeyPair};
 use generic_async_http_client::{Request, Response};
 use crate::acme::AcmeError;
 
+/// Send a signed JOSE request to an endpoint
 pub async fn jose_req(
     key: &EcdsaP256SHA256KeyPair,
     kid: Option<&str>,

@@ -35,3 +35,16 @@ pub(crate) async fn write_file(
     let path = dir.as_ref().join(file);
     Ok(write(path, contents).await?)
 }
+
+#[cfg(not(any(feature = "use_tokio", feature = "use_async_std")))]
+pub async fn create_dir_all(_a: impl AsRef<Path>) -> Result<(), Error> {
+    Err(Error::new(ErrorKind::NotFound, "no async backend selected"))
+}
+#[cfg(not(any(feature = "use_tokio", feature = "use_async_std")))]
+pub async fn read(_a: impl AsRef<Path>) -> Result<Vec<u8>, Error> {
+    Err(Error::new(ErrorKind::NotFound, "no async backend selected"))
+}
+#[cfg(not(any(feature = "use_tokio", feature = "use_async_std")))]
+pub async fn write(_a: impl AsRef<Path>, _c: impl AsRef<[u8]>) -> Result<(), Error> {
+    Err(Error::new(ErrorKind::NotFound, "no async backend selected"))
+}

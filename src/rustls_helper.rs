@@ -13,6 +13,12 @@ use async_std::task::sleep;
 #[cfg(feature = "use_tokio")]
 use tokio::time::sleep;
 
+/// Request a signed certificate from the ACME provider at `directory_url` for the DNS `domains`.
+/// The secret for the challenge is passed as a ready to use certificate to `set_auth_key(domain, certificate)?`.
+/// This certificate has to be presented upon a TLS request with ACME ALPN and SNI for that domain.
+///
+/// Provide your email in `contact` in the form *mailto:admin@example.com* to receive warnings regarding your certificate.
+/// Set a `cache_dir` to remember your account.
 pub async fn order<P, F>(
     set_auth_key: F,
     directory_url: &str,
@@ -43,11 +49,11 @@ where P: AsRef<Path>, F: Fn(String, CertifiedKey) -> Result<(), AcmeError>
             Order::Ready { finalize } => {
                 log::info!("sending csr");
                 let csr = cert.get_csr()?;
-                account.finalize(finalize, csr).await?
+                account.send_csr(finalize, csr).await?
             }
             Order::Valid { certificate } => {
                 log::info!("download certificate");
-                let acme_cert_pem = account.certificate(certificate).await?;
+                let acme_cert_pem = account.obtain_certificate(certificate).await?;
                 let rd = acme_cert_pem.as_bytes();
                 let cert_key = cert.sign(rd)
                     .map_err(|_|AcmeError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "could not parse certificate")))?;
@@ -63,7 +69,7 @@ async fn authorize<F>(
     url: &String) -> Result<(), OrderError>
  where F: Fn(String, CertifiedKey) -> Result<(), AcmeError>
     {
-    let (domain, challenge_url) = match account.auth(url).await? {
+    let (domain, challenge_url) = match account.check_auth(url).await? {
         Auth::Pending {
             identifier,
             challenges,
@@ -73,7 +79,7 @@ async fn authorize<F>(
             let (challenge, key_auth) = account.tls_alpn_01(&challenges)?;
             let auth_key = gen_acme_cert(vec![domain.clone()], key_auth.as_ref())?;
             set_auth_key(domain.clone(), auth_key)?;
-            account.challenge(&challenge.url).await?;
+            account.trigger_challenge(&challenge.url).await?;
             (domain, challenge.url.clone())
         }
         Auth::Valid => return Ok(()),
@@ -81,10 +87,10 @@ async fn authorize<F>(
     };
     for i in 0u8..5 {
         sleep(Duration::from_secs(1u64 << i)).await;
-        match account.auth(url).await? {
+        match account.check_auth(url).await? {
             Auth::Pending { .. } => {
                 log::info!("authorization for {} still pending", &domain);
-                account.challenge(&challenge_url).await?
+                account.trigger_challenge(&challenge_url).await?
             }
             Auth::Valid => return Ok(()),
             auth => return Err(OrderError::BadAuth(auth)),
@@ -93,6 +99,7 @@ async fn authorize<F>(
     Err(OrderError::TooManyAttemptsAuth(domain))
 }
 
+/// get the duration until the next ACME refresh should be done
 pub fn duration_until_renewal_attempt(cert_key: Option<&CertifiedKey>, err_cnt: usize) -> Duration {
     let valid_until = cert_key
         .and_then(|cert_key| cert_key.cert.first())

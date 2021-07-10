@@ -1,3 +1,17 @@
+/*!
+An ACME Account
+
+1. `load_or_create` your Account
+2. place a `new_order` for your domains
+3. `check_auth` for a single domain, if valid move to 6.
+4. use `tls_alpn_01` to get a certificate for it
+5. `trigger_challenge` on that domain
+6. repeat 3. - 5. for all other domains
+7. `send_csr` for your cert ...
+8. ... and finally `obtain_certificate`
+
+*/
+
 use base64::URL_SAFE_NO_PAD;
 
 use serde_json::json; 
@@ -18,7 +32,9 @@ pub struct Account {
 }
 
 impl Account {
-    /// contact is mailto:admin@yoursite.tld
+    /// Create or load a cached Account for ACME provider at `directory`.
+    /// Provide your email in `contact` in the form *mailto:admin@example.com* to receive warnings regarding your certificate.
+    /// Set a `cache_dir` to remember/load your account.
     pub async fn load_or_create<'a, P, S, I>(
         directory: Directory,
         cache_dir: Option<P>,
@@ -86,6 +102,7 @@ impl Account {
         let hash = base64::encode_config(ctx.finish(), base64::URL_SAFE_NO_PAD);
         format!("cached_account_{}", hash)
     }
+    /// send a JOSE request using the own Key to sign it
     async fn request(&self, url: impl AsRef<str>, payload: &str) -> Result<Response, AcmeError> {
         jose_req(
             &self.key_pair,
@@ -95,22 +112,26 @@ impl Account {
             payload,
         ).await
     }
+    /// send a new order for the DNS identifiers in domains
     pub async fn new_order(&self, domains: Vec<String>) -> Result<Order, AcmeError> {
         let domains: Vec<Identifier> = domains.into_iter().map(|d| Identifier::Dns(d)).collect();
         let payload = format!("{{\"identifiers\":{}}}", serde_json::to_string(&domains)?);
         let mut response = self.request(&self.directory.new_order, &payload).await?;
         Ok(response.json().await?)
     }
-    pub async fn auth(&self, url: impl AsRef<str>) -> Result<Auth, AcmeError> {
+    /// check the authentication status for a particular challange
+    pub async fn check_auth(&self, url: impl AsRef<str>) -> Result<Auth, AcmeError> {
         let payload = "".to_string();
         let mut response = self.request(url, &payload).await?;
         Ok(response.json().await?)
     }
-    pub async fn challenge(&self, url: impl AsRef<str>) -> Result<(), AcmeError> {
+    /// trigger a particular challange
+    pub async fn trigger_challenge(&self, url: impl AsRef<str>) -> Result<(), AcmeError> {
         self.request(&url, "{}").await?;
         Ok(())
     }
-    pub async fn finalize(&self, url: impl AsRef<str>, csr: Vec<u8>) -> Result<Order, AcmeError> {
+    /// request a certificate to be signed
+    pub async fn send_csr(&self, url: impl AsRef<str>, csr: Vec<u8>) -> Result<Order, AcmeError> {
         let payload = format!(
             "{{\"csr\":\"{}\"}}",
             base64::encode_config(csr, URL_SAFE_NO_PAD)
@@ -118,10 +139,12 @@ impl Account {
         let mut response = self.request(&url, &payload).await?;
         Ok(response.json().await?)
     }
-    pub async fn certificate(&self, url: impl AsRef<str>) -> Result<String, AcmeError> {
+    /// obtain a signed certificate for a privious CSR
+    pub async fn obtain_certificate(&self, url: impl AsRef<str>) -> Result<String, AcmeError> {
         Ok(self.request(&url, "").await?.text().await?)
     }
-    /// return hash for first alpn challange
+    /// return a hash for first alpn challange.
+    /// the hash needs to be presented inside the TLS certificate when the ACME TLS ALPN is present
     pub fn tls_alpn_01<'a>(
         &self,
         challenges: &'a Vec<Challenge>,

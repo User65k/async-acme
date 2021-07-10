@@ -104,7 +104,7 @@ pub enum AcmeError {
     RcgenError(#[from] rcgen::RcgenError)
 }
 
-
+/// parse a HTTP header as String or fail
 fn get_header(response: &Response, header: &'static str) -> Result<String, AcmeError> {
     response.header(header)
         .and_then(|hv|hv.try_into().ok())
