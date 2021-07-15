@@ -1,5 +1,6 @@
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![Crates.io][crates-badge]][crates-url]
+[![Released API docs](https://docs.rs/async-acme/badge.svg)](https://docs.rs/async-acme)
 [![MIT licensed][mit-badge]][mit-url]
 
 [crates-badge]: https://img.shields.io/crates/v/async-acme.svg
