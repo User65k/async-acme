@@ -2,6 +2,7 @@
 
 A default implementation for `AsRef<Path>` (`Sting`, `OsString`, `PathBuf`, ...)
 allows the use of a local directory as cache.
+Note that the files contain private keys.
 */
 
 use std::{io::{Error as IoError, ErrorKind}, path::Path};

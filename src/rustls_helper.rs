@@ -1,4 +1,4 @@
-/*! utilities to help with rustls.
+/*! <span class="stab portability" title="This is supported on crate feature `use_rustls` only"><code>use_rustls</code></span> utilities to help with rustls.
 
 ```
 use async_acme::{
