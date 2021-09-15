@@ -1,3 +1,9 @@
+/*! Ways to cache account data and certificates.
+
+A default implementation for `AsRef<Path>` (`Sting`, `OsString`, `PathBuf`, ...)
+allows the use of a local directory as cache.
+*/
+
 use std::{io::{Error as IoError, ErrorKind}, path::Path};
 
 use async_trait::async_trait;
@@ -9,7 +15,7 @@ use tokio::fs::{create_dir_all, read, write};
 
 use crate::crypto::sha256_hasher;
 
-/// A location to cache account data and certificates.
+/// Trait to define a custom location/mechanism to cache account data and certificates.
 #[async_trait]
 pub trait AcmeCache {
     /// The error type returned from the functions on this trait.

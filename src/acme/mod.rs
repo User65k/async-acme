@@ -1,3 +1,6 @@
+/*! Automatic Certificate Management Environment (ACME) acording to [rfc8555](https://datatracker.ietf.org/doc/html/rfc8555)
+
+*/
 use generic_async_http_client::{Error as HTTPError, Request, Response};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -8,10 +11,13 @@ pub use account::Account;
 
 use crate::cache::CacheError;
 
+/// URI of <https://letsencrypt.org/> staging Directory. Use this for tests. See <https://letsencrypt.org/docs/staging-environment/>
 pub const LETS_ENCRYPT_STAGING_DIRECTORY: &str =
     "https://acme-staging-v02.api.letsencrypt.org/directory";
+/// URI of <https://letsencrypt.org/> prod Directory. Certificates aquired from this are trusted by most Browsers.
 pub const LETS_ENCRYPT_PRODUCTION_DIRECTORY: &str =
     "https://acme-v02.api.letsencrypt.org/directory";
+/// ALPN string used by ACME-TLS challanges
 pub const ACME_TLS_ALPN_NAME: &[u8] = b"acme-tls/1";
 
 /// An ACME directory. Containing the REST endpoints of an ACME provider
@@ -24,6 +30,7 @@ pub struct Directory {
 }
 
 impl Directory {
+    ///query the endpoints from a discovery url
     pub async fn discover(url: &str) -> Result<Self, AcmeError> {
         Ok(Request::get(url).exec().await?.json().await?)
     }
@@ -33,6 +40,7 @@ impl Directory {
     }
 }
 
+/// Challange used to prove ownership over a domain
 #[derive(Debug, Deserialize, Eq, PartialEq)]
 pub enum ChallengeType {
     #[serde(rename = "http-01")]
@@ -43,29 +51,39 @@ pub enum ChallengeType {
     TlsAlpn01,
 }
 
+/// State of an ACME request
 #[derive(Debug, Deserialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum Order {
+    /// [`Auth`] for authorizations must be completed
     Pending {
         authorizations: Vec<String>,
         finalize: String,
     },
+    /// [`Auth`] is done. CSR can be sent ([`Account::send_csr`](./struct.Account.html#method.send_csr))
     Ready {
         finalize: String,
     },
+    /// CSR is done. Certificate can be downloaded ([`Account::obtain_certificate`](./struct.Account.html#method.obtain_certificate))
     Valid {
         certificate: String,
     },
     Invalid,
 }
 
+///Authentication status for a particular challange
+/// 
+/// Can be obtained by [`Account::check_auth`](./struct.Account.html#method.check_auth)
+/// and is driven by triggering and completing challanges
 #[derive(Debug, Deserialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum Auth {
+    /// challange must be triggered
     Pending {
         identifier: Identifier,
         challenges: Vec<Challenge>,
     },
+    /// ownership is proven
     Valid,
     Invalid,
     Revoked,

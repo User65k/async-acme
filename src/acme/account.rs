@@ -1,17 +1,3 @@
-/*!
-An ACME Account
-
-1. `load_or_create` your Account
-2. place a `new_order` for your domains
-3. `check_auth` for a single domain, if valid move to 6.
-4. use `tls_alpn_01` to get a certificate for it
-5. `trigger_challenge` on that domain
-6. repeat 3. - 5. for all other domains
-7. `send_csr` for your cert ...
-8. ... and finally `obtain_certificate`
-
-*/
-
 use base64::URL_SAFE_NO_PAD;
 
 use serde_json::json;
@@ -24,6 +10,16 @@ use crate::{
 };
 use generic_async_http_client::Response;
 
+/// An Acout at an ACME provider. Used to query certificates and challanges
+/// 
+/// 1. `load_or_create` your Account
+/// 2. place a `new_order` for your domains
+/// 3. `check_auth` for a single domain, if valid move to 6.
+/// 4. use `tls_alpn_01` to get a certificate for it
+/// 5. `trigger_challenge` on that domain
+/// 6. repeat 3. - 5. for all other domains
+/// 7. `send_csr` for your cert ...
+/// 8. ... and finally `obtain_certificate`
 #[derive(Debug)]
 pub struct Account {
     key_pair: EcdsaP256SHA256KeyPair,
