@@ -1,0 +1,20 @@
+name: async_std_rustls
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build example async_rustls
+      run: cargo build --features async_std_rustls --example async_rustls --verbose
