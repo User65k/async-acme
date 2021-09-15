@@ -9,9 +9,9 @@ use std::{io::{Error as IoError, ErrorKind}, path::Path};
 use async_trait::async_trait;
 
 #[cfg(feature = "use_async_std")]
-use async_std::fs::{create_dir_all as cdall, read, write};
+use async_std::{fs::{create_dir_all as cdall, read, OpenOptions}, os::unix::fs::OpenOptionsExt, io::WriteExt};
 #[cfg(feature = "use_tokio")]
-use tokio::fs::{create_dir_all, read, write};
+use tokio::{fs::{create_dir_all, read, OpenOptions}, io::AsyncWriteExt};
 
 use crate::crypto::sha256_hasher;
 
@@ -131,6 +131,16 @@ async fn read(_a: impl AsRef<Path>) -> Result<Vec<u8>, IoError> {
 #[cfg(not(any(feature = "use_tokio", feature = "use_async_std")))]
 async fn write(_a: impl AsRef<Path>, _c: impl AsRef<[u8]>) -> Result<(), IoError> {
     Err(IoError::new(ErrorKind::NotFound, "no async backend selected"))
+}
+#[cfg(any(feature = "use_tokio", feature = "use_async_std"))]
+async fn write(file_path: impl AsRef<Path>, content: impl AsRef<[u8]>) -> Result<(), IoError> {
+    let mut file = OpenOptions::new();
+    file.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    file.mode(0o600); //user: R+W
+    let mut buffer = file.open(file_path.as_ref()).await?;
+    buffer.write_all(content.as_ref()).await?;
+    Ok(())
 }
 
 fn cached_key_file_name(contact: &[&str]) -> String {
