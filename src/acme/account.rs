@@ -20,14 +20,13 @@ use crate::jose::{jose_req, key_authorization_sha256};
 use crate::acme::{AcmeError, ChallengeType, Directory, get_header, Order, Identifier, Auth, Challenge};
 use generic_async_http_client::{Response};
 use crate::crypto::{EcdsaP256SHA256KeyPair, sha256_hasher};
-use std::path::{PathBuf, Path};
+use std::path::Path;
 use crate::fs::{create_dir_all, read_if_exist, write_file};
 
 #[derive(Debug)]
 pub struct Account {
     key_pair: EcdsaP256SHA256KeyPair,
     directory: Directory,
-    cache: Option<PathBuf>,
     kid: String,
 }
 
@@ -90,7 +89,6 @@ impl Account {
             key_pair,
             kid,
             directory,
-            cache: cache_dir.map(|p| p.as_ref().to_path_buf()),
         })
     }
     fn cached_key_file_name(contact: &Vec<&str>) -> String {
