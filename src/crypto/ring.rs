@@ -69,6 +69,9 @@ impl CertBuilder {
     pub fn get_csr(&self) -> Result<Vec<u8>,RcgenError> {
         self.cert.serialize_request_der()
     }
+    pub fn private_key_as_pem_pkcs8(&self) -> String {
+        self.cert.serialize_private_key_pem()
+    }
     pub fn sign(self, mut pem_cert: &[u8]) -> Result<CertifiedKey, ()> {
         let cert_chain = 
         rustls::internal::pemfile::certs(&mut pem_cert)?;

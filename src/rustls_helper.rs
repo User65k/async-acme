@@ -5,18 +5,20 @@ use thiserror::Error;
 use futures_util::future::try_join_all;
 
 use rustls::sign::CertifiedKey;
-use crate::crypto::{get_cert_duration_left, CertBuilder, gen_acme_cert};
+use crate::crypto::{get_cert_duration_left, CertBuilder, gen_acme_cert, sha256_hasher};
 use crate::acme::{Order, Directory, Account, Auth, Identifier, AcmeError};
+use crate::fs::write;
 
 #[cfg(feature = "use_async_std")]
 use async_std::task::sleep;
 #[cfg(feature = "use_tokio")]
 use tokio::time::sleep;
 
-/// Request a signed certificate from the ACME provider at `directory_url` for the DNS `domains`.
+/// Obtain a signed certificate from the ACME provider at `directory_url` for the DNS `domains`.
+/// 
 /// The secret for the challenge is passed as a ready to use certificate to `set_auth_key(domain, certificate)?`.
 /// This certificate has to be presented upon a TLS request with ACME ALPN and SNI for that domain.
-///
+/// 
 /// Provide your email in `contact` in the form *mailto:admin@example.com* to receive warnings regarding your certificate.
 /// Set a `cache_dir` to remember your account.
 pub async fn order<P, F>(
@@ -28,11 +30,47 @@ pub async fn order<P, F>(
 ) -> Result<CertifiedKey, OrderError>
 where P: AsRef<Path>, F: Fn(String, CertifiedKey) -> Result<(), AcmeError>
 {
-    let cert = CertBuilder::gen_new(domains.clone())?;
-    
     let directory = Directory::discover(&directory_url).await?;
-    let account = Account::load_or_create(directory, cache_dir, contact).await?;
-    let mut order = account.new_order(domains.clone()).await?;
+    let account = Account::load_or_create(directory, cache_dir.as_ref(), contact).await?;
+
+    let (c, key_pem, cert_pem) = drive_order(set_auth_key, domains.clone(), account).await?;
+
+    if let Some(dir) = cache_dir
+    {
+        let hash = {
+            let mut ctx = sha256_hasher();
+            for domain in domains {
+                ctx.update(domain.as_ref());
+                ctx.update(&[0])
+            }
+            // cache is specific to a particular ACME API URL
+            ctx.update(directory_url.as_bytes());
+            base64::encode_config(ctx.finish(), base64::URL_SAFE_NO_PAD)
+        };
+        let file = dir.as_ref().join(&format!("cached_cert_{}", hash));
+        
+        let content = format!("{}\n{}", key_pem, cert_pem);
+        write(&file, &content).await.map_err(AcmeError::Io)?;
+    };
+    Ok(c)
+}
+
+/// Obtain a signed certificate for the DNS `domains` using `account`.
+/// 
+/// The secret for the challenge is passed as a ready to use certificate to `set_auth_key(domain, certificate)?`.
+/// This certificate has to be presented upon a TLS request with ACME ALPN and SNI for that domain.
+/// 
+/// Returns the signed Certificate, its private key as pem, and the certificate as pem again
+pub async fn drive_order<F>(
+    set_auth_key: F,
+    domains: Vec<String>,
+    account: Account
+) -> Result<(CertifiedKey, String, String), OrderError>
+where
+    F: Fn(String, CertifiedKey) -> Result<(), AcmeError>
+{    
+    let cert = CertBuilder::gen_new(domains.clone())?;
+    let mut order = account.new_order(domains).await?;
     loop {
         order = match order {
             Order::Pending {
@@ -55,9 +93,10 @@ where P: AsRef<Path>, F: Fn(String, CertifiedKey) -> Result<(), AcmeError>
                 log::info!("download certificate");
                 let acme_cert_pem = account.obtain_certificate(certificate).await?;
                 let rd = acme_cert_pem.as_bytes();
+                let pkey_pem = cert.private_key_as_pem_pkcs8();
                 let cert_key = cert.sign(rd)
                     .map_err(|_|AcmeError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "could not parse certificate")))?;
-                return Ok(cert_key);
+                return Ok((cert_key, pkey_pem, acme_cert_pem));
             }
             Order::Invalid => return Err(OrderError::BadOrder(order)),
         }

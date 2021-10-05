@@ -36,7 +36,7 @@ async-std = {version="1.9.0",optional=true}
 tokio = {version = "1.6", optional=true}
 
 [features]
-use_rustls = ["generic-async-http-client/rustls", "rustls", "ring", "rcgen"]
+use_rustls = ["generic-async-http-client/rustls", "rustls", "ring", "rcgen/pem"]
 use_async_std = ["async-std", "generic-async-http-client/use_async_h1"]
 use_tokio = ["tokio/fs", "generic-async-http-client/use_hyper"]
 

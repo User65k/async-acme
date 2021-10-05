@@ -59,6 +59,9 @@ impl CertBuilder {
     pub fn get_csr(&self) -> Result<Vec<u8>,()> {
         Err(())
     }
+    pub fn private_key_as_pem_pkcs8(&self) -> String {
+        "".to_string()
+    }
     pub fn sign(self, mut pem_cert: &[u8]) -> Result<Identity, ()> {
         Err(())
     }

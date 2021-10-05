@@ -126,6 +126,9 @@ impl CertBuilder {
     pub fn get_csr(&self) -> Result<Vec<u8>,ErrorStack> {
         self.req.to_der()
     }
+    pub fn private_key_as_pem_pkcs8(&self) -> Result<Vec<u8>, ErrorStack> {
+        self.pkey.private_key_to_pem_pkcs8()
+    }
     pub fn sign(self, mut pem_cert: &[u8]) -> Result<Identity, ()> {
         let cert = X509::stack_from_pem(&pem_cert)?;
         Pkcs12Builder::build("", "", &self.pkey, &cert)?;
