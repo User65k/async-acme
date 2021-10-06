@@ -1,6 +1,6 @@
 [package]
 name = "async-acme"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["daniel"]
 edition = "2018"
 
