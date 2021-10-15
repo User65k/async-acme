@@ -1,6 +1,6 @@
 [package]
 name = "async-acme"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["daniel"]
 edition = "2018"
 
@@ -20,9 +20,10 @@ serde = { version = "1.0", features = ["derive"] }
 
 futures-util = { version = "0.3", default-features = false }
 
-rustls = { version = "0.19", optional = true}
+rustls = { version = "0.20", optional = true}
 ring = {version = "0.16", features = ["std"], optional = true} #used by rustls
 rcgen = { version = "0.8", default-features = false, optional = true} #uses ring
+rustls-pemfile = { version = "0.2.1", optional = true}
 
 openssl = { version = "0.10", optional = true }
 native-tls = { version = "0.2", optional = true }
@@ -30,13 +31,13 @@ native-tls = { version = "0.2", optional = true }
 #easy_ssl # openssl cert gen
 #p12 = "0.2.0"
 
-x509-parser = { version = "0.9", default-features = false}
+x509-parser = { version = "0.12", default-features = false}
 
 async-std = {version="1.9.0",optional=true}
 tokio = {version = "1.6", optional=true}
 
 [features]
-use_rustls = ["generic-async-http-client/rustls", "rustls", "ring", "rcgen/pem"]
+use_rustls = ["generic-async-http-client/rustls", "rustls", "ring", "rcgen/pem", "rustls-pemfile"]
 use_async_std = ["async-std", "generic-async-http-client/use_async_h1"]
 use_tokio = ["tokio/fs", "generic-async-http-client/use_hyper"]
 
@@ -52,7 +53,7 @@ async-stream = "0.3.0"
 tokio = { version = "1.0", features = ["io-std", "macros", "net", "rt-multi-thread"] }
 hyper = { version = "0.14", features = ["full"] }
 futures-util = { version = "0.3.1", default-features = false }
-tokio-rustls = "0.22"
+tokio-rustls = "0.23"
 pretty_env_logger = { version = "0.4.0", default-features = false }
 async-rustls = "0.2"
 

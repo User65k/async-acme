@@ -42,16 +42,16 @@ pub fn gen_acme_cert(domains: Vec<String>, acme_hash: &[u8]) -> Result<Certified
     params.alg = &PKCS_ECDSA_P256_SHA256;
     params.custom_extensions = vec![CustomExtension::new_acme_identifier(acme_hash)];
     let cert = Certificate::from_params(params)?;
-    let pk = any_ecdsa_type(&PrivateKey(cert.serialize_private_key_der())).unwrap();
+    let key = any_ecdsa_type(&PrivateKey(cert.serialize_private_key_der())).unwrap();
     Ok(CertifiedKey::new(
         vec![rustls::Certificate(cert.serialize_der()?)],
-        Arc::new(pk),
+        key,
     ))
 }
 
 pub struct CertBuilder {
     cert: Certificate,
-    pk: Box<dyn SigningKey>
+    pk: Arc<dyn SigningKey>
 }
 impl CertBuilder {
     pub fn gen_new(domains: Vec<String>) -> Result<CertBuilder, RcgenError> {
@@ -74,8 +74,9 @@ impl CertBuilder {
     }
     pub fn sign(self, mut pem_cert: &[u8]) -> Result<CertifiedKey, ()> {
         let cert_chain = 
-        rustls::internal::pemfile::certs(&mut pem_cert)?;
-        let cert_key = CertifiedKey::new(cert_chain, Arc::new(self.pk));
+        rustls_pemfile::certs(&mut pem_cert).map_err(|_|())?
+            .drain(..).map(|v|rustls::Certificate(v)).collect();
+        let cert_key = CertifiedKey::new(cert_chain, self.pk);
         Ok(cert_key)
     }
 }
