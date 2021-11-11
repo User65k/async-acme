@@ -6,10 +6,9 @@ use tokio::time::sleep;
 
 use async_stream::stream;
 use core::task::{Context, Poll};
-use futures_util::{future::TryFutureExt, stream::Stream};
+use futures_util::stream::Stream;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
-use rustls::{sign::CertifiedKey, ClientHello, NoClientAuth, ResolvesServerCert, ServerConfig};
 use std::pin::Pin;
 use std::{
     collections::HashMap,
@@ -19,21 +18,27 @@ use std::{
     vec::Vec,
 };
 use tokio::net::{TcpListener, TcpStream};
-use tokio_rustls::{server::TlsStream, TlsAcceptor};
+use tokio_rustls::{server::TlsStream, TlsAcceptor, rustls::{sign::CertifiedKey, server::{ClientHello, ResolvesServerCert}, ServerConfig}};
 
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
+
+    let cres = Arc::new(ResolveServerCert::new());
+    let certres = Arc::downgrade(&cres);
+
     // Build TLS configuration.
-    let mut cfg = ServerConfig::new(NoClientAuth::new());
-    cfg.set_protocols(&[
+    let mut cfg = ServerConfig::builder()
+        .with_safe_defaults()
+        .with_no_client_auth()
+        .with_cert_resolver(cres);
+    
+    cfg.alpn_protocols = vec![
         b"h2".to_vec(),
         b"http/1.1".to_vec(),
         ACME_TLS_ALPN_NAME.to_vec(),
-    ]);
-    let cres = Arc::new(ResolveServerCert::new());
-    let certres = Arc::downgrade(&cres);
-    cfg.cert_resolver = cres;
+    ];
+    
     let tls_cfg = Arc::new(cfg);
 
     // Create a task to keep the cert valid
@@ -83,9 +88,9 @@ struct AcmeTaskRunner {
     dns_names: Vec<String>,
 }
 pub struct ResolveServerCert {
-    cert: RwLock<Option<CertifiedKey>>,
+    cert: RwLock<Option<Arc<CertifiedKey>>>,
     /// temp for acme challange
-    acme_keys: RwLock<HashMap<String, CertifiedKey>>,
+    acme_keys: RwLock<HashMap<String, Arc<CertifiedKey>>>,
 }
 
 /// ACME
@@ -101,7 +106,7 @@ impl AcmeTaskRunner {
                 Some(resolver) => {
                     //check how long the current cert is still valid
                     let default = resolver.cert.read().unwrap();
-                    duration_until_renewal_attempt(default.as_ref(), err_cnt)
+                    duration_until_renewal_attempt(default.as_deref(), err_cnt)
                 }
             };
             if d.as_secs() != 0 {
@@ -131,7 +136,7 @@ impl AcmeTaskRunner {
                             break;
                         }
                         Some(resolver) => {
-                            resolver.cert.write().unwrap().replace(cert_key);
+                            resolver.cert.write().unwrap().replace(Arc::new(cert_key));
                         }
                     }
                     err_cnt = 0;
@@ -142,7 +147,7 @@ impl AcmeTaskRunner {
     fn set_auth_key(&self, key: String, cert: CertifiedKey) -> Result<(), AcmeError> {
         match self.certres.upgrade() {
             Some(resolver) => {
-                resolver.acme_keys.write().unwrap().insert(key, cert);
+                resolver.acme_keys.write().unwrap().insert(key, Arc::new(cert));
                 Ok(())
             }
             None => Err(std::io::Error::new(io::ErrorKind::BrokenPipe, "TLS shut down").into()),
@@ -151,8 +156,8 @@ impl AcmeTaskRunner {
 }
 
 impl ResolvesServerCert for ResolveServerCert {
-    fn resolve(&self, client_hello: ClientHello) -> Option<CertifiedKey> {
-        if client_hello.alpn() == Some(&[ACME_TLS_ALPN_NAME]) {
+    fn resolve(&self, client_hello: ClientHello) -> Option<Arc<CertifiedKey>> {
+        if client_hello.alpn().and_then(|mut iter| iter.find(|alpn|*alpn==ACME_TLS_ALPN_NAME)).is_some() {
             //return a not yet signed cert
             return match client_hello.server_name() {
                 None => None,
