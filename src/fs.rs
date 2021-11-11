@@ -3,8 +3,10 @@ pub use async_std::fs::{create_dir_all as cdall, read, write};
 #[cfg(feature = "use_tokio")]
 pub use tokio::fs::{create_dir_all, read, write};
 
-use std::io::{Error, ErrorKind};
-use std::path::Path;
+use std::{
+    io::{Error, ErrorKind},
+    path::Path,
+};
 
 #[cfg(feature = "use_async_std")]
 pub async fn create_dir_all(a: impl AsRef<Path>) -> Result<(), Error> {
@@ -22,7 +24,7 @@ pub(crate) async fn read_if_exist(
         Ok(content) => Ok(Some(content)),
         Err(err) => match err.kind() {
             ErrorKind::NotFound => Ok(None),
-            _ => Err(err.into()),
+            _ => Err(err),
         },
     }
 }

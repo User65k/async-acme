@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 fn print_err() {
     println!("no crypto backend selected");
     eprintln!("no crypto backend selected");
@@ -15,7 +17,7 @@ impl EcdsaP256SHA256KeyPair {
         print_err();
         std::result::Result::<&[u8], ()>::Err(())
     }
-    pub fn sign(&self, message: &[u8]) -> Result<impl AsRef<[u8]>, ()> {
+    pub fn sign(&self, _message: &[u8]) -> Result<impl AsRef<[u8]>, ()> {
         std::result::Result::<&[u8], ()>::Err(())
     }
     pub fn public_key(&self) -> &'static [u8] {
@@ -47,7 +49,7 @@ pub fn gen_acme_cert(_domains: Vec<String>, _acme_hash: &[u8]) -> Result<Identit
 
 pub struct CertBuilder {}
 impl CertBuilder {
-    pub fn gen_new(domains: Vec<String>) -> Result<CertBuilder, ()> {
+    pub fn gen_new(_domains: Vec<String>) -> Result<CertBuilder, ()> {
         print_err();
         Err(())
     }
@@ -57,7 +59,7 @@ impl CertBuilder {
     pub fn private_key_as_pem_pkcs8(&self) -> String {
         "".to_string()
     }
-    pub fn sign(self, mut pem_cert: &[u8]) -> Result<Identity, ()> {
+    pub fn sign(self, _pem_cert: &[u8]) -> Result<Identity, ()> {
         Err(())
     }
 }

@@ -22,10 +22,10 @@ pub struct Directory {
 
 impl Directory {
     pub async fn discover(url: &str) -> Result<Self, AcmeError> {
-        Ok(Request::get(&url).exec().await?.json().await?)
+        Ok(Request::get(url).exec().await?.json().await?)
     }
     pub async fn nonce(&self) -> Result<String, AcmeError> {
-        let response = Request::get(&self.new_nonce.as_str()).exec().await?;
+        let response = Request::get(self.new_nonce.as_str()).exec().await?;
         get_header(&response, "replay-nonce")
     }
 }
@@ -107,5 +107,5 @@ fn get_header(response: &Response, header: &'static str) -> Result<String, AcmeE
     response
         .header(header)
         .and_then(|hv| hv.try_into().ok())
-        .ok_or_else(|| AcmeError::MissingHeader(header))
+        .ok_or(AcmeError::MissingHeader(header))
 }
