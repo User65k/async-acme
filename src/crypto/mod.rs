@@ -32,10 +32,7 @@ pub fn get_cert_duration_left(x509_cert : &[u8]) -> Result<Duration,()> {
     let since_the_epoch = start
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards");
-    //Ok(Duration::from_secs(valid_until).saturating_sub(since_the_epoch))
-    let valid_secs = (valid_until - since_the_epoch.as_secs()).max(0);
-    let wait_secs = Duration::from_secs(valid_secs as u64);
-    Ok(wait_secs)
+    Ok(Duration::from_secs(valid_until).saturating_sub(since_the_epoch))
 }
 
 #[cfg(not(any(feature = "use_rustls", feature = "use_openssl")))]
