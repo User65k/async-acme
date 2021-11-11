@@ -1,13 +1,12 @@
-
-use std::time::Duration;
-use std::path::Path;
-use thiserror::Error;
 use futures_util::future::try_join_all;
+use std::path::Path;
+use std::time::Duration;
+use thiserror::Error;
 
-use rustls::sign::CertifiedKey;
-use crate::crypto::{get_cert_duration_left, CertBuilder, gen_acme_cert, sha256_hasher};
-use crate::acme::{Order, Directory, Account, Auth, Identifier, AcmeError};
+use crate::acme::{Account, AcmeError, Auth, Directory, Identifier, Order};
+use crate::crypto::{gen_acme_cert, get_cert_duration_left, sha256_hasher, CertBuilder};
 use crate::fs::write;
+use rustls::sign::CertifiedKey;
 
 #[cfg(feature = "use_async_std")]
 use async_std::task::sleep;
@@ -15,10 +14,10 @@ use async_std::task::sleep;
 use tokio::time::sleep;
 
 /// Obtain a signed certificate from the ACME provider at `directory_url` for the DNS `domains`.
-/// 
+///
 /// The secret for the challenge is passed as a ready to use certificate to `set_auth_key(domain, certificate)?`.
 /// This certificate has to be presented upon a TLS request with ACME ALPN and SNI for that domain.
-/// 
+///
 /// Provide your email in `contact` in the form *mailto:admin@example.com* to receive warnings regarding your certificate.
 /// Set a `cache_dir` to remember your account.
 pub async fn order<P, F>(
@@ -28,15 +27,16 @@ pub async fn order<P, F>(
     cache_dir: Option<P>,
     contact: &Vec<String>,
 ) -> Result<CertifiedKey, OrderError>
-where P: AsRef<Path>, F: Fn(String, CertifiedKey) -> Result<(), AcmeError>
+where
+    P: AsRef<Path>,
+    F: Fn(String, CertifiedKey) -> Result<(), AcmeError>,
 {
     let directory = Directory::discover(&directory_url).await?;
     let account = Account::load_or_create(directory, cache_dir.as_ref(), contact).await?;
 
     let (c, key_pem, cert_pem) = drive_order(set_auth_key, domains.clone(), account).await?;
 
-    if let Some(dir) = cache_dir
-    {
+    if let Some(dir) = cache_dir {
         let hash = {
             let mut ctx = sha256_hasher();
             for domain in domains {
@@ -48,7 +48,7 @@ where P: AsRef<Path>, F: Fn(String, CertifiedKey) -> Result<(), AcmeError>
             base64::encode_config(ctx.finish(), base64::URL_SAFE_NO_PAD)
         };
         let file = dir.as_ref().join(&format!("cached_cert_{}", hash));
-        
+
         let content = format!("{}\n{}", key_pem, cert_pem);
         write(&file, &content).await.map_err(AcmeError::Io)?;
     };
@@ -56,19 +56,19 @@ where P: AsRef<Path>, F: Fn(String, CertifiedKey) -> Result<(), AcmeError>
 }
 
 /// Obtain a signed certificate for the DNS `domains` using `account`.
-/// 
+///
 /// The secret for the challenge is passed as a ready to use certificate to `set_auth_key(domain, certificate)?`.
 /// This certificate has to be presented upon a TLS request with ACME ALPN and SNI for that domain.
-/// 
+///
 /// Returns the signed Certificate, its private key as pem, and the certificate as pem again
 pub async fn drive_order<F>(
     set_auth_key: F,
     domains: Vec<String>,
-    account: Account
+    account: Account,
 ) -> Result<(CertifiedKey, String, String), OrderError>
 where
-    F: Fn(String, CertifiedKey) -> Result<(), AcmeError>
-{    
+    F: Fn(String, CertifiedKey) -> Result<(), AcmeError>,
+{
     let cert = CertBuilder::gen_new(domains.clone())?;
     let mut order = account.new_order(domains).await?;
     loop {
@@ -94,20 +94,22 @@ where
                 let acme_cert_pem = account.obtain_certificate(certificate).await?;
                 let rd = acme_cert_pem.as_bytes();
                 let pkey_pem = cert.private_key_as_pem_pkcs8();
-                let cert_key = cert.sign(rd)
-                    .map_err(|_|AcmeError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "could not parse certificate")))?;
+                let cert_key = cert.sign(rd).map_err(|_| {
+                    AcmeError::Io(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "could not parse certificate",
+                    ))
+                })?;
                 return Ok((cert_key, pkey_pem, acme_cert_pem));
             }
             Order::Invalid => return Err(OrderError::BadOrder(order)),
         }
     }
 }
-async fn authorize<F>(
-    set_auth_key: &F,
-    account: &Account,
-    url: &String) -> Result<(), OrderError>
- where F: Fn(String, CertifiedKey) -> Result<(), AcmeError>
-    {
+async fn authorize<F>(set_auth_key: &F, account: &Account, url: &String) -> Result<(), OrderError>
+where
+    F: Fn(String, CertifiedKey) -> Result<(), AcmeError>,
+{
     let (domain, challenge_url) = match account.check_auth(url).await? {
         Auth::Pending {
             identifier,
@@ -144,7 +146,7 @@ pub fn duration_until_renewal_attempt(cert_key: Option<&CertifiedKey>, err_cnt: 
         .and_then(|cert_key| cert_key.cert.first())
         .and_then(|cert| get_cert_duration_left(cert.0.as_slice()).ok())
         .unwrap_or_default();
-    
+
     let wait_secs = valid_until / 2;
     match err_cnt {
         0 => wait_secs,
