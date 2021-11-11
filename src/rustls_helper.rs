@@ -1,12 +1,12 @@
 use futures_util::future::try_join_all;
-use std::path::Path;
+use rustls::sign::CertifiedKey;
 use std::time::Duration;
 use thiserror::Error;
 
-use crate::acme::{Account, AcmeError, Auth, Directory, Identifier, Order};
-use crate::crypto::{gen_acme_cert, get_cert_duration_left, sha256_hasher, CertBuilder};
-use crate::fs::write;
-use rustls::sign::CertifiedKey;
+use crate::{
+    acme::{Account, AcmeCache, AcmeError, Auth, Directory, Identifier, Order},
+    crypto::{gen_acme_cert, get_cert_duration_left, CertBuilder},
+};
 
 #[cfg(feature = "use_async_std")]
 use async_std::task::sleep;
@@ -19,38 +19,27 @@ use tokio::time::sleep;
 /// This certificate has to be presented upon a TLS request with ACME ALPN and SNI for that domain.
 ///
 /// Provide your email in `contact` in the form *mailto:admin@example.com* to receive warnings regarding your certificate.
-/// Set a `cache_dir` to remember your account.
-pub async fn order<P, F>(
+/// Set a `cache` to remember your account.
+pub async fn order<C, F>(
     set_auth_key: F,
     directory_url: &str,
-    domains: &Vec<String>,
-    cache_dir: Option<P>,
-    contact: &Vec<String>,
+    domains: &[String],
+    cache: Option<&C>,
+    contact: &[String],
 ) -> Result<CertifiedKey, OrderError>
 where
-    P: AsRef<Path>,
+    C: AcmeCache,
     F: Fn(String, CertifiedKey) -> Result<(), AcmeError>,
 {
-    let directory = Directory::discover(&directory_url).await?;
-    let account = Account::load_or_create(directory, cache_dir.as_ref(), contact).await?;
+    let directory = Directory::discover(directory_url).await?;
+    let account = Account::load_or_create(directory, cache, contact).await?;
 
-    let (c, key_pem, cert_pem) = drive_order(set_auth_key, domains.clone(), account).await?;
+    let (c, key_pem, cert_pem) = drive_order(set_auth_key, domains.to_vec(), account).await?;
 
-    if let Some(dir) = cache_dir {
-        let hash = {
-            let mut ctx = sha256_hasher();
-            for domain in domains {
-                ctx.update(domain.as_ref());
-                ctx.update(&[0])
-            }
-            // cache is specific to a particular ACME API URL
-            ctx.update(directory_url.as_bytes());
-            base64::encode_config(ctx.finish(), base64::URL_SAFE_NO_PAD)
-        };
-        let file = dir.as_ref().join(&format!("cached_cert_{}", hash));
-
-        let content = format!("{}\n{}", key_pem, cert_pem);
-        write(&file, &content).await.map_err(AcmeError::Io)?;
+    if let Some(dir) = cache {
+        dir.write_certificate(domains, directory_url, &key_pem, &cert_pem)
+            .await
+            .map_err(AcmeError::cache)?;
     };
     Ok(c)
 }
@@ -106,7 +95,7 @@ where
         }
     }
 }
-async fn authorize<F>(set_auth_key: &F, account: &Account, url: &String) -> Result<(), OrderError>
+async fn authorize<F>(set_auth_key: &F, account: &Account, url: &str) -> Result<(), OrderError>
 where
     F: Fn(String, CertifiedKey) -> Result<(), AcmeError>,
 {

@@ -11,7 +11,7 @@ use std::{
 #[cfg(feature = "use_async_std")]
 pub async fn create_dir_all(a: impl AsRef<Path>) -> Result<(), Error> {
     let p = a.as_ref();
-    let p = <(&async_std::path::Path)>::from(p);
+    let p = <&async_std::path::Path>::from(p);
     cdall(p).await
 }
 
@@ -34,6 +34,7 @@ pub(crate) async fn write_file(
     file: impl AsRef<Path>,
     contents: impl AsRef<[u8]>,
 ) -> Result<(), Error> {
+    create_dir_all(dir.as_ref()).await?;
     let path = dir.as_ref().join(file);
     Ok(write(path, contents).await?)
 }
