@@ -66,3 +66,7 @@ required-features = ["hyper_rustls"]
 name = "async_rustls"
 path = "examples/async_rustls.rs"
 required-features = ["async_std_rustls"]
+
+
+[package.metadata.docs.rs]
+features = ["use_rustls"]
