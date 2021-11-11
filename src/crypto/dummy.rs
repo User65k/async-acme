@@ -1,5 +1,4 @@
-fn print_err()
-{
+fn print_err() {
     println!("no crypto backend selected");
     eprintln!("no crypto backend selected");
 }
@@ -16,8 +15,7 @@ impl EcdsaP256SHA256KeyPair {
         print_err();
         std::result::Result::<&[u8], ()>::Err(())
     }
-    pub fn sign(&self, message: &[u8],
-    ) -> Result<impl AsRef<[u8]>, ()> {
+    pub fn sign(&self, message: &[u8]) -> Result<impl AsRef<[u8]>, ()> {
         std::result::Result::<&[u8], ()>::Err(())
     }
     pub fn public_key(&self) -> &'static [u8] {
@@ -29,34 +27,31 @@ pub fn sha256(_a: &[u8]) -> &'static [u8] {
     print_err();
     &[]
 }
-pub struct DummyHash{}
+pub struct DummyHash {}
 pub fn sha256_hasher() -> DummyHash {
     print_err();
-    DummyHash{}
+    DummyHash {}
 }
 impl DummyHash {
-    pub fn update(&mut self, _a: &[u8])
-    {}
-    pub fn finish(self) -> &'static [u8]
-    {
+    pub fn update(&mut self, _a: &[u8]) {}
+    pub fn finish(self) -> &'static [u8] {
         &[]
     }
 }
 
-pub struct Identity{}
+pub struct Identity {}
 pub fn gen_acme_cert(_domains: Vec<String>, _acme_hash: &[u8]) -> Result<Identity, ()> {
     print_err();
     Err(())
 }
 
-pub struct CertBuilder {
-}
+pub struct CertBuilder {}
 impl CertBuilder {
     pub fn gen_new(domains: Vec<String>) -> Result<CertBuilder, ()> {
         print_err();
         Err(())
     }
-    pub fn get_csr(&self) -> Result<Vec<u8>,()> {
+    pub fn get_csr(&self) -> Result<Vec<u8>, ()> {
         Err(())
     }
     pub fn private_key_as_pem_pkcs8(&self) -> String {

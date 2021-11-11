@@ -1,5 +1,5 @@
+use generic_async_http_client::{Error as HTTPError, Request, Response};
 use serde::{Deserialize, Serialize};
-use generic_async_http_client::{Request, Response, Error as HTTPError};
 use std::convert::TryInto;
 use thiserror::Error;
 mod account;
@@ -10,7 +10,6 @@ pub const LETS_ENCRYPT_STAGING_DIRECTORY: &str =
 pub const LETS_ENCRYPT_PRODUCTION_DIRECTORY: &str =
     "https://acme-v02.api.letsencrypt.org/directory";
 pub const ACME_TLS_ALPN_NAME: &[u8] = b"acme-tls/1";
-
 
 /// An ACME directory. Containing the REST endpoints of an ACME provider
 #[derive(Debug, Clone, Deserialize)]
@@ -26,8 +25,7 @@ impl Directory {
         Ok(Request::get(&url).exec().await?.json().await?)
     }
     pub async fn nonce(&self) -> Result<String, AcmeError> {
-        let response = Request::get(&self.new_nonce.as_str())
-            .exec().await?;
+        let response = Request::get(&self.new_nonce.as_str()).exec().await?;
         get_header(&response, "replay-nonce")
     }
 }
@@ -101,12 +99,13 @@ pub enum AcmeError {
     HttpStatus(u16),
     #[cfg(feature = "use_rustls")]
     #[error("Could not create Certificate: {0}")]
-    RcgenError(#[from] rcgen::RcgenError)
+    RcgenError(#[from] rcgen::RcgenError),
 }
 
 /// parse a HTTP header as String or fail
 fn get_header(response: &Response, header: &'static str) -> Result<String, AcmeError> {
-    response.header(header)
-        .and_then(|hv|hv.try_into().ok())
+    response
+        .header(header)
+        .and_then(|hv| hv.try_into().ok())
         .ok_or_else(|| AcmeError::MissingHeader(header))
 }

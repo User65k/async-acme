@@ -3,8 +3,8 @@ pub use async_std::fs::{create_dir_all as cdall, read, write};
 #[cfg(feature = "use_tokio")]
 pub use tokio::fs::{create_dir_all, read, write};
 
+use std::io::{Error, ErrorKind};
 use std::path::Path;
-use std::io::{ErrorKind, Error};
 
 #[cfg(feature = "use_async_std")]
 pub async fn create_dir_all(a: impl AsRef<Path>) -> Result<(), Error> {

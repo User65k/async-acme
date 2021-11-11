@@ -14,14 +14,16 @@ An ACME Account
 
 use base64::URL_SAFE_NO_PAD;
 
-use serde_json::json; 
+use serde_json::json;
 
-use crate::jose::{jose_req, key_authorization_sha256};
-use crate::acme::{AcmeError, ChallengeType, Directory, get_header, Order, Identifier, Auth, Challenge};
-use generic_async_http_client::{Response};
-use crate::crypto::{EcdsaP256SHA256KeyPair, sha256_hasher};
-use std::path::Path;
+use crate::acme::{
+    get_header, AcmeError, Auth, Challenge, ChallengeType, Directory, Identifier, Order,
+};
+use crate::crypto::{sha256_hasher, EcdsaP256SHA256KeyPair};
 use crate::fs::{create_dir_all, read_if_exist, write_file};
+use crate::jose::{jose_req, key_authorization_sha256};
+use generic_async_http_client::Response;
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct Account {
@@ -67,11 +69,17 @@ impl Account {
                             write_file(cache_dir, &file, data).await?;
                         }
                         EcdsaP256SHA256KeyPair::load(data)
-                    },
-                    Err(_) => Err(())
+                    }
+                    Err(_) => Err(()),
                 }
             }
-        }.map_err(|_|AcmeError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "could not create key pair")))?;
+        }
+        .map_err(|_| {
+            AcmeError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "could not create key pair",
+            ))
+        })?;
         let payload = json!({
             "termsOfServiceAgreed": true,
             "contact": contact,
@@ -83,7 +91,8 @@ impl Account {
             &directory.nonce().await?,
             &directory.new_account,
             &payload,
-        ).await?;
+        )
+        .await?;
         let kid = get_header(&response, "Location")?;
         Ok(Account {
             key_pair,
@@ -108,7 +117,8 @@ impl Account {
             &self.directory.nonce().await?,
             url.as_ref(),
             payload,
-        ).await
+        )
+        .await
     }
     /// send a new order for the DNS identifiers in domains
     pub async fn new_order(&self, domains: Vec<String>) -> Result<Order, AcmeError> {

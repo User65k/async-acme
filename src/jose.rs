@@ -1,8 +1,8 @@
-use base64::URL_SAFE_NO_PAD;
-use serde::Serialize;
-use crate::crypto::{sha256, EcdsaP256SHA256KeyPair};
-use generic_async_http_client::{Request, Response};
 use crate::acme::AcmeError;
+use crate::crypto::{sha256, EcdsaP256SHA256KeyPair};
+use base64::URL_SAFE_NO_PAD;
+use generic_async_http_client::{Request, Response};
+use serde::Serialize;
 
 /// Send a signed JOSE request to an endpoint
 pub async fn jose_req(
@@ -19,10 +19,14 @@ pub async fn jose_req(
     let protected = Protected::base64(jwk, kid, nonce, url)?;
     let payload = base64::encode_config(payload, URL_SAFE_NO_PAD);
     let combined = format!("{}.{}", &protected, &payload);
-    let signature = match key.sign(combined.as_bytes()){
+    let signature = match key.sign(combined.as_bytes()) {
         Ok(s) => s,
         Err(_) => {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "could not sign jose request").into());
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "could not sign jose request",
+            )
+            .into());
         }
     };
     let signature = base64::encode_config(signature.as_ref(), URL_SAFE_NO_PAD);
@@ -33,13 +37,13 @@ pub async fn jose_req(
     };
     let req = Request::post(url)
         .json(&body)?
-        .set_header("Content-Type","application/jose+json")?;
+        .set_header("Content-Type", "application/jose+json")?;
     log::debug!("{:?}", req);
     let mut response = req.exec().await?;
     if response.status_code() > 299 {
         if let Ok(s) = response.text().await {
             log::error!("{}: HTTP {} - {}", url, response.status_code(), s);
-        }else{
+        } else {
             log::error!("{}: HTTP {}", url, response.status_code());
         }
         return Err(AcmeError::HttpStatus(response.status_code()));
