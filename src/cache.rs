@@ -7,11 +7,11 @@ use async_std::fs::{create_dir_all as cdall, read, write};
 #[cfg(feature = "use_tokio")]
 use tokio::fs::{create_dir_all, read, write};
 
-use crate::{acme::AnyError, crypto::sha256_hasher};
+use crate::crypto::sha256_hasher;
 
 #[async_trait]
 pub trait AcmeCache {
-    type Error: AnyError;
+    type Error: CacheError;
 
     async fn read_account(&self, contacts: &[&str]) -> Result<Option<Vec<u8>>, Self::Error>;
 
@@ -76,6 +76,10 @@ where
         Ok(())
     }
 }
+
+pub trait CacheError: std::error::Error + Send + Sync + 'static {}
+
+impl<T> CacheError for T where T: std::error::Error + Send + Sync + 'static {}
 
 #[cfg(feature = "use_async_std")]
 pub async fn create_dir_all(a: impl AsRef<Path>) -> Result<(), Error> {

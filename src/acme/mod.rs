@@ -6,6 +6,8 @@ use thiserror::Error;
 mod account;
 pub use account::Account;
 
+use crate::cache::CacheError;
+
 pub const LETS_ENCRYPT_STAGING_DIRECTORY: &str =
     "https://acme-staging-v02.api.letsencrypt.org/directory";
 pub const LETS_ENCRYPT_PRODUCTION_DIRECTORY: &str =
@@ -102,11 +104,11 @@ pub enum AcmeError {
     #[error("Could not create Certificate: {0}")]
     RcgenError(#[from] rcgen::RcgenError),
     #[error("error from cache: {0}")]
-    Cache(Box<dyn AnyError>),
+    Cache(Box<dyn CacheError>),
 }
 
 impl AcmeError {
-    pub fn cache<E: AnyError>(err: E) -> Self {
+    pub fn cache<E: CacheError>(err: E) -> Self {
         Self::Cache(Box::new(err))
     }
 }
@@ -118,7 +120,3 @@ fn get_header(response: &Response, header: &'static str) -> Result<String, AcmeE
         .and_then(|hv| hv.try_into().ok())
         .ok_or(AcmeError::MissingHeader(header))
 }
-
-pub trait AnyError: std::error::Error + Send + Sync + 'static {}
-
-impl<T> AnyError for T where T: std::error::Error + Send + Sync + 'static {}
