@@ -4,7 +4,8 @@ use std::time::Duration;
 use thiserror::Error;
 
 use crate::{
-    acme::{Account, AcmeCache, AcmeError, Auth, Directory, Identifier, Order},
+    acme::{Account, AcmeError, Auth, Directory, Identifier, Order},
+    cache::AcmeCache,
     crypto::{gen_acme_cert, get_cert_duration_left, CertBuilder},
 };
 

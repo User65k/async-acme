@@ -1,19 +1,10 @@
-use async_trait::async_trait;
 use generic_async_http_client::{Error as HTTPError, Request, Response};
 use serde::{Deserialize, Serialize};
-use std::{
-    convert::TryInto,
-    path::{Path, PathBuf},
-};
+use std::convert::TryInto;
 use thiserror::Error;
 
 mod account;
 pub use account::Account;
-
-use crate::{
-    crypto::sha256_hasher,
-    fs::{read_if_exist, write, write_file},
-};
 
 pub const LETS_ENCRYPT_STAGING_DIRECTORY: &str =
     "https://acme-staging-v02.api.letsencrypt.org/directory";
@@ -127,75 +118,6 @@ fn get_header(response: &Response, header: &'static str) -> Result<String, AcmeE
         .and_then(|hv| hv.try_into().ok())
         .ok_or(AcmeError::MissingHeader(header))
 }
-
-#[async_trait]
-pub trait AcmeCache {
-    type Error: AnyError;
-
-    async fn read_account(&self, contacts: &[&str]) -> Result<Option<Vec<u8>>, Self::Error>;
-
-    async fn write_account(&self, contacts: &[&str], contents: &[u8]) -> Result<(), Self::Error>;
-
-    async fn write_certificate(
-        &self,
-        domains: &[String],
-        directory_url: &str,
-        key_pem: &str,
-        certificate_pem: &str,
-    ) -> Result<(), Self::Error>;
-}
-
-macro_rules! impl_path_cache {
-    ($type:ident) => {
-        #[async_trait]
-        impl AcmeCache for $type {
-            type Error = std::io::Error;
-
-            async fn read_account(
-                &self,
-                contacts: &[&str],
-            ) -> Result<Option<Vec<u8>>, Self::Error> {
-                read_if_exist(self, Account::cached_key_file_name(contacts)).await
-            }
-
-            async fn write_account(
-                &self,
-                contacts: &[&str],
-                contents: &[u8],
-            ) -> Result<(), Self::Error> {
-                write_file(self, Account::cached_key_file_name(contacts), contents).await
-            }
-
-            async fn write_certificate(
-                &self,
-                domains: &[String],
-                directory_url: &str,
-                key_pem: &str,
-                certificate_pem: &str,
-            ) -> Result<(), Self::Error> {
-                let hash = {
-                    let mut ctx = sha256_hasher();
-                    for domain in domains {
-                        ctx.update(domain.as_ref());
-                        ctx.update(&[0])
-                    }
-                    // cache is specific to a particular ACME API URL
-                    ctx.update(directory_url.as_bytes());
-                    base64::encode_config(ctx.finish(), base64::URL_SAFE_NO_PAD)
-                };
-                let file = AsRef::<Path>::as_ref(self).join(&format!("cached_cert_{}", hash));
-                let content = format!("{}\n{}", key_pem, certificate_pem);
-                write(&file, &content).await?;
-                Ok(())
-            }
-        }
-    };
-}
-
-impl_path_cache!(PathBuf);
-impl_path_cache!(Path);
-impl_path_cache!(String);
-impl_path_cache!(str);
 
 pub trait AnyError: std::error::Error + Send + Sync + 'static {}
 

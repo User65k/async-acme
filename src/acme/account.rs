@@ -17,11 +17,9 @@ use base64::URL_SAFE_NO_PAD;
 use serde_json::json;
 
 use crate::{
-    acme::{
-        get_header, AcmeCache, AcmeError, Auth, Challenge, ChallengeType, Directory, Identifier,
-        Order,
-    },
-    crypto::{sha256_hasher, EcdsaP256SHA256KeyPair},
+    acme::{get_header, AcmeError, Auth, Challenge, ChallengeType, Directory, Identifier, Order},
+    cache::AcmeCache,
+    crypto::EcdsaP256SHA256KeyPair,
     jose::{jose_req, key_authorization_sha256},
 };
 use generic_async_http_client::Response;
@@ -102,15 +100,6 @@ impl Account {
             kid,
             directory,
         })
-    }
-    pub(crate) fn cached_key_file_name(contact: &[&str]) -> String {
-        let mut ctx = sha256_hasher();
-        for el in contact {
-            ctx.update(el.as_ref());
-            ctx.update(&[0])
-        }
-        let hash = base64::encode_config(ctx.finish(), base64::URL_SAFE_NO_PAD);
-        format!("cached_account_{}", hash)
     }
     /// send a JOSE request using the own Key to sign it
     async fn request(&self, url: impl AsRef<str>, payload: &str) -> Result<Response, AcmeError> {
