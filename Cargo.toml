@@ -11,7 +11,7 @@ keywords = ["letsencrypt", "acme", "async", "alpn", "tls"]
 readme = "README.md"
 
 [dependencies]
-generic-async-http-client = "0.1"
+generic-async-http-client = "0.2"
 base64 =  "0.13"
 thiserror = "1.0"
 log = "0.4"
@@ -55,7 +55,7 @@ hyper = { version = "0.14", features = ["full"] }
 futures-util = { version = "0.3.1", default-features = false }
 tokio-rustls = "0.23"
 pretty_env_logger = { version = "0.4.0", default-features = false }
-async-rustls = "0.2"
+futures-rustls = "0.22.0"
 
 [[example]]
 name = "hyper_rustls"
