@@ -1,4 +1,4 @@
-use std::{io::ErrorKind, path::Path};
+use std::{io::{Error as IoError, ErrorKind}, path::Path};
 
 use async_trait::async_trait;
 
@@ -56,7 +56,7 @@ impl<P> AcmeCache for P
 where
     P: AsRef<Path> + Send + Sync,
 {
-    type Error = std::io::Error;
+    type Error = IoError;
 
     async fn read_account(&self, contacts: &[&str]) -> Result<Option<Vec<u8>>, Self::Error> {
         let file = cached_key_file_name(contacts);
@@ -108,23 +108,23 @@ pub trait CacheError: std::error::Error + Send + Sync + 'static {}
 impl<T> CacheError for T where T: std::error::Error + Send + Sync + 'static {}
 
 #[cfg(feature = "use_async_std")]
-async fn create_dir_all(a: impl AsRef<Path>) -> Result<(), std::io::Error> {
+async fn create_dir_all(a: impl AsRef<Path>) -> Result<(), IoError> {
     let p = a.as_ref();
     let p = <&async_std::path::Path>::from(p);
     cdall(p).await
 }
 
 #[cfg(not(any(feature = "use_tokio", feature = "use_async_std")))]
-async fn create_dir_all(_a: impl AsRef<Path>) -> Result<(), Error> {
-    Err(Error::new(ErrorKind::NotFound, "no async backend selected"))
+async fn create_dir_all(_a: impl AsRef<Path>) -> Result<(), IoError> {
+    Err(IoError::new(ErrorKind::NotFound, "no async backend selected"))
 }
 #[cfg(not(any(feature = "use_tokio", feature = "use_async_std")))]
-async fn read(_a: impl AsRef<Path>) -> Result<Vec<u8>, Error> {
-    Err(Error::new(ErrorKind::NotFound, "no async backend selected"))
+async fn read(_a: impl AsRef<Path>) -> Result<Vec<u8>, IoError> {
+    Err(IoError::new(ErrorKind::NotFound, "no async backend selected"))
 }
 #[cfg(not(any(feature = "use_tokio", feature = "use_async_std")))]
-async fn write(_a: impl AsRef<Path>, _c: impl AsRef<[u8]>) -> Result<(), Error> {
-    Err(Error::new(ErrorKind::NotFound, "no async backend selected"))
+async fn write(_a: impl AsRef<Path>, _c: impl AsRef<[u8]>) -> Result<(), IoError> {
+    Err(IoError::new(ErrorKind::NotFound, "no async backend selected"))
 }
 
 fn cached_key_file_name(contact: &[&str]) -> String {
