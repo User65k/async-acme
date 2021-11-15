@@ -7,8 +7,8 @@ Without anything specified you will end up with *no async backend selected* or *
 */
 
 pub mod acme;
+pub mod cache;
 mod crypto;
-mod fs;
 mod jose;
 
 #[cfg(feature = "use_rustls")]

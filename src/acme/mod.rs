@@ -2,8 +2,11 @@ use generic_async_http_client::{Error as HTTPError, Request, Response};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use thiserror::Error;
+
 mod account;
 pub use account::Account;
+
+use crate::cache::CacheError;
 
 pub const LETS_ENCRYPT_STAGING_DIRECTORY: &str =
     "https://acme-staging-v02.api.letsencrypt.org/directory";
@@ -100,6 +103,14 @@ pub enum AcmeError {
     #[cfg(feature = "use_rustls")]
     #[error("Could not create Certificate: {0}")]
     RcgenError(#[from] rcgen::RcgenError),
+    #[error("error from cache: {0}")]
+    Cache(Box<dyn CacheError>),
+}
+
+impl AcmeError {
+    pub fn cache<E: CacheError>(err: E) -> Self {
+        Self::Cache(Box::new(err))
+    }
 }
 
 /// parse a HTTP header as String or fail

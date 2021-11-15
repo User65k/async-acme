@@ -18,12 +18,11 @@ use serde_json::json;
 
 use crate::{
     acme::{get_header, AcmeError, Auth, Challenge, ChallengeType, Directory, Identifier, Order},
-    crypto::{sha256_hasher, EcdsaP256SHA256KeyPair},
-    fs::{create_dir_all, read_if_exist, write_file},
+    cache::AcmeCache,
+    crypto::EcdsaP256SHA256KeyPair,
     jose::{jose_req, key_authorization_sha256},
 };
 use generic_async_http_client::Response;
-use std::path::Path;
 
 #[derive(Debug)]
 pub struct Account {
@@ -35,24 +34,23 @@ pub struct Account {
 impl Account {
     /// Create or load a cached Account for ACME provider at `directory`.
     /// Provide your email in `contact` in the form *mailto:admin@example.com* to receive warnings regarding your certificate.
-    /// Set a `cache_dir` to remember/load your account.
-    pub async fn load_or_create<'a, P, S, I>(
+    /// Set a `cache` to remember/load your account.
+    pub async fn load_or_create<'a, C, S, I>(
         directory: Directory,
-        cache_dir: Option<P>,
+        cache: Option<&C>,
         contact: I,
     ) -> Result<Self, AcmeError>
     where
-        P: AsRef<Path>,
+        C: AcmeCache,
         S: AsRef<str> + 'a,
         I: IntoIterator<Item = &'a S>,
     {
-        if let Some(cache_dir) = &cache_dir {
-            create_dir_all(cache_dir).await?;
-        }
         let contact: Vec<&'a str> = contact.into_iter().map(AsRef::<str>::as_ref).collect();
-        let file = Self::cached_key_file_name(&contact);
-        let pkcs8 = match &cache_dir {
-            Some(cache_dir) => read_if_exist(cache_dir, &file).await?,
+        let pkcs8 = match &cache {
+            Some(cache) => cache
+                .read_account(&contact)
+                .await
+                .map_err(AcmeError::cache)?,
             None => None,
         };
         let key_pair = match pkcs8 {
@@ -65,8 +63,11 @@ impl Account {
                 match EcdsaP256SHA256KeyPair::generate() {
                     Ok(pkcs8) => {
                         let data = pkcs8.as_ref();
-                        if let Some(cache_dir) = &cache_dir {
-                            write_file(cache_dir, &file, data).await?;
+                        if let Some(cache) = &cache {
+                            cache
+                                .write_account(&contact, data)
+                                .await
+                                .map_err(AcmeError::cache)?;
                         }
                         EcdsaP256SHA256KeyPair::load(data)
                     }
@@ -99,15 +100,6 @@ impl Account {
             kid,
             directory,
         })
-    }
-    fn cached_key_file_name(contact: &[&str]) -> String {
-        let mut ctx = sha256_hasher();
-        for el in contact {
-            ctx.update(el.as_ref());
-            ctx.update(&[0])
-        }
-        let hash = base64::encode_config(ctx.finish(), base64::URL_SAFE_NO_PAD);
-        format!("cached_account_{}", hash)
     }
     /// send a JOSE request using the own Key to sign it
     async fn request(&self, url: impl AsRef<str>, payload: &str) -> Result<Response, AcmeError> {

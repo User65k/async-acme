@@ -2,13 +2,17 @@ use rcgen::{
     Certificate, CertificateParams, CustomExtension, DistinguishedName, RcgenError,
     PKCS_ECDSA_P256_SHA256,
 };
-use ring::digest::{digest, Context, SHA256 as DoSHA256};
-use ring::error::Unspecified;
-use ring::rand::SystemRandom;
-use ring::signature::{EcdsaKeyPair, KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING};
+use ring::{
+    digest::{digest, Context, SHA256 as DoSHA256},
+    error::Unspecified,
+    rand::SystemRandom,
+    signature::{EcdsaKeyPair, KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING},
+};
 
-use rustls::sign::{any_ecdsa_type, CertifiedKey, SigningKey};
-use rustls::PrivateKey;
+use rustls::{
+    sign::{any_ecdsa_type, CertifiedKey, SigningKey},
+    PrivateKey,
+};
 
 use std::sync::Arc;
 
@@ -18,9 +22,9 @@ pub struct EcdsaP256SHA256KeyPair(EcdsaKeyPair);
 impl EcdsaP256SHA256KeyPair {
     pub fn load(pkcs8: &[u8]) -> Result<EcdsaP256SHA256KeyPair, ()> {
         let alg = &ECDSA_P256_SHA256_FIXED_SIGNING;
-        EcdsaKeyPair::from_pkcs8(alg, &pkcs8)
+        EcdsaKeyPair::from_pkcs8(alg, pkcs8)
             .map_err(|_| ())
-            .map(|kp| EcdsaP256SHA256KeyPair(kp))
+            .map(EcdsaP256SHA256KeyPair)
     }
     pub fn generate() -> Result<impl AsRef<[u8]>, ()> {
         let alg = &ECDSA_P256_SHA256_FIXED_SIGNING;
@@ -77,7 +81,7 @@ impl CertBuilder {
         let cert_chain = rustls_pemfile::certs(&mut pem_cert)
             .map_err(|_| ())?
             .drain(..)
-            .map(|v| rustls::Certificate(v))
+            .map(rustls::Certificate)
             .collect();
         let cert_key = CertifiedKey::new(cert_chain, self.pk);
         Ok(cert_key)
