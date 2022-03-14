@@ -8,12 +8,12 @@
 [mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
 [mit-url]: https://github.com/User65k/async-acme/blob/master/LICENSE
 
-A generic async ACME create.
+A generic async ACME crate.
 
 The main goal is to allow binaries to choose what async runtime and TLS lib is used.
 
 # Features
-You need to specify via features what crates are used to the actual work.
+You need to specify via features what crates are used in the actual work.
 
 |feature flag|Meaning|
 |---|---|
@@ -28,15 +28,15 @@ If you use this crate for a library, please [reexport](https://doc.rust-lang.org
 
 # Motivation
 
-Rust offers different async runtimes that - on a high level - offer the same thing: asyncrounes functions for files, sockets and so on.
+Rust offers different async runtimes that - on a high level - offer the same thing: asynchronous functions for files, sockets and so on.
 
-So if you write a lib and need some basic stiff (like an http client) you sometimes have to make choices that are not what your crates users would have liked.
+So if you write a lib and need some basic features (like an http client) you sometimes have to make choices that are not what your crate's users would have liked.
 For example:
 I wrote a [webserver](https://github.com/User65k/flash_rust_ws) based on hyper and wanted to add ACME.
-A crate I found did what I needed but used async-h1 and async-std. While that worked, it did increase the binary size and crates I depend on by a good amount.
+A crate I found did what I needed but used async-h1 and async-std. While that worked, it did increase the binary size and number of crates I depend on by a good amount.
 
 So I wrote this. You can specify which backend to use.
-In the Webserver case, using `--features="hyper_rustls"` (same dependencies) instead of `--features="async_std_rustls"` did lead to 81 less crates and a 350kB smaller binary.
+In the Webserver case, using `--features="hyper_rustls"` (same dependencies) instead of `--features="async_std_rustls"` lead to 81 less crates and a 350kB smaller binary.
 Using:
 ```
 [profile.release]
