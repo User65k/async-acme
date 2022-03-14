@@ -10,7 +10,7 @@
 
 A generic async ACME crate.
 
-The main goal is to allow binaries to choose what async runtime and TLS lib is used.
+The main goal is to allow binaries to choose what async runtime and TLS library is used.
 
 # Features
 You need to specify via features what crates are used in the actual work.
@@ -24,7 +24,7 @@ You need to specify via features what crates are used in the actual work.
 |async_std_rustls | `use_rustls`+`use_async_std` ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/async-acme/async_std_rustls)|
 
 Without anything specified you will end up with *no async backend selected* or *no crypto backend selected*.
-If you use this crate for a library, please [reexport](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features) the apropriate features.
+If you use this crate for a library, please [reexport](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features) the appropriate features.
 
 # Motivation
 
@@ -45,7 +45,7 @@ codegen-units = 1
 ```
 
 # Examples
-These query certs from Let's Encrypts Staging endpoint.
+These query certs from Let's Encrypt's Staging endpoint.
 In order for them to work you need to change the email and domain from `example.com` to your own.
 
 1. Hyper server with rustls: `cargo run --example hyper_rustls --features="hyper_rustls"`
