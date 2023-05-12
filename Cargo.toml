@@ -71,3 +71,4 @@ required-features = ["async_std_rustls"]
 
 [package.metadata.docs.rs]
 features = ["use_rustls"]
+rustdoc-args = ["--cfg", "docsrs"]
