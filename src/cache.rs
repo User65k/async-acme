@@ -5,14 +5,25 @@ allows the use of a local directory as cache.
 Note that the files contain private keys.
 */
 
-use std::{io::{Error as IoError, ErrorKind}, path::Path};
-
+use crate::B64_URL_SAFE_NO_PAD;
 use async_trait::async_trait;
+use base64::Engine;
+use std::{
+    io::{Error as IoError, ErrorKind},
+    path::Path,
+};
 
 #[cfg(feature = "use_async_std")]
-use async_std::{fs::{create_dir_all as cdall, read, OpenOptions}, os::unix::fs::OpenOptionsExt, io::WriteExt};
+use async_std::{
+    fs::{create_dir_all as cdall, read, OpenOptions},
+    io::WriteExt,
+    os::unix::fs::OpenOptionsExt,
+};
 #[cfg(feature = "use_tokio")]
-use tokio::{fs::{create_dir_all, read, OpenOptions}, io::AsyncWriteExt};
+use tokio::{
+    fs::{create_dir_all, read, OpenOptions},
+    io::AsyncWriteExt,
+};
 
 use crate::crypto::sha256_hasher;
 
@@ -100,7 +111,7 @@ where
             }
             // cache is specific to a particular ACME API URL
             ctx.update(directory_url.as_bytes());
-            base64::encode_config(ctx.finish(), base64::URL_SAFE_NO_PAD)
+            B64_URL_SAFE_NO_PAD.encode(ctx.finish())
         };
         let file = AsRef::<Path>::as_ref(self).join(&format!("cached_cert_{}", hash));
         let content = format!("{}\n{}", key_pem, certificate_pem);
@@ -123,15 +134,24 @@ async fn create_dir_all(a: impl AsRef<Path>) -> Result<(), IoError> {
 
 #[cfg(not(any(feature = "use_tokio", feature = "use_async_std")))]
 async fn create_dir_all(_a: impl AsRef<Path>) -> Result<(), IoError> {
-    Err(IoError::new(ErrorKind::NotFound, "no async backend selected"))
+    Err(IoError::new(
+        ErrorKind::NotFound,
+        "no async backend selected",
+    ))
 }
 #[cfg(not(any(feature = "use_tokio", feature = "use_async_std")))]
 async fn read(_a: impl AsRef<Path>) -> Result<Vec<u8>, IoError> {
-    Err(IoError::new(ErrorKind::NotFound, "no async backend selected"))
+    Err(IoError::new(
+        ErrorKind::NotFound,
+        "no async backend selected",
+    ))
 }
 #[cfg(not(any(feature = "use_tokio", feature = "use_async_std")))]
 async fn write(_a: impl AsRef<Path>, _c: impl AsRef<[u8]>) -> Result<(), IoError> {
-    Err(IoError::new(ErrorKind::NotFound, "no async backend selected"))
+    Err(IoError::new(
+        ErrorKind::NotFound,
+        "no async backend selected",
+    ))
 }
 #[cfg(any(feature = "use_tokio", feature = "use_async_std"))]
 async fn write(file_path: impl AsRef<Path>, content: impl AsRef<[u8]>) -> Result<(), IoError> {
@@ -150,6 +170,6 @@ fn cached_key_file_name(contact: &[&str]) -> String {
         ctx.update(el.as_ref());
         ctx.update(&[0])
     }
-    let hash = base64::encode_config(ctx.finish(), base64::URL_SAFE_NO_PAD);
+    let hash = B64_URL_SAFE_NO_PAD.encode(ctx.finish());
     format!("cached_account_{}", hash)
 }

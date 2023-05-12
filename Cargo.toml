@@ -1,8 +1,8 @@
 [package]
 name = "async-acme"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["User65k <15049544+User65k@users.noreply.github.com>"]
-edition = "2018"
+edition = "2021"
 
 repository = "https://github.com/User65k/async-acme"
 description = "async ACME client for tls-alpn-01 challenge"
@@ -11,8 +11,8 @@ keywords = ["letsencrypt", "acme", "async", "alpn", "tls"]
 readme = "README.md"
 
 [dependencies]
-generic-async-http-client = "0.2"
-base64 =  "0.13"
+generic-async-http-client = "0.3"
+base64 =  "0.21"
 thiserror = "1.0"
 log = "0.4"
 serde_json = "1.0"
@@ -21,10 +21,10 @@ serde = { version = "1.0", features = ["derive"] }
 futures-util = { version = "0.3", default-features = false }
 async-trait = "0.1"
 
-rustls = { version = "0.20", optional = true}
+rustls = { version = "0.21", optional = true}
 ring = {version = "0.16", features = ["std"], optional = true} #used by rustls
-rcgen = { version = "0.8", default-features = false, optional = true} #uses ring
-rustls-pemfile = { version = "0.2.1", optional = true}
+rcgen = { version = "0.10", default-features = false, optional = true} #uses ring
+rustls-pemfile = { version = "1.0", optional = true}
 
 openssl = { version = "0.10", optional = true }
 native-tls = { version = "0.2", optional = true }
@@ -32,7 +32,7 @@ native-tls = { version = "0.2", optional = true }
 #easy_ssl # openssl cert gen
 #p12 = "0.2.0"
 
-x509-parser = { version = "0.12", default-features = false}
+x509-parser = { version = "0.15", default-features = false}
 
 async-std = {version="1.9.0",optional=true}
 tokio = {version = "1.6", optional=true}
@@ -54,9 +54,9 @@ async-stream = "0.3.0"
 tokio = { version = "1.0", features = ["io-std", "macros", "net", "rt-multi-thread"] }
 hyper = { version = "0.14", features = ["full"] }
 futures-util = { version = "0.3.1", default-features = false }
-tokio-rustls = "0.23"
+tokio-rustls = "0.24"
 pretty_env_logger = { version = "0.4.0", default-features = false }
-futures-rustls = "0.22.0"
+futures-rustls = "0.24"
 
 [[example]]
 name = "hyper_rustls"

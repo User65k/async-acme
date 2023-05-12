@@ -20,8 +20,8 @@ You need to specify via features what crates are used in the actual work.
 |use_tokio | Use [tokio](https://crates.io/crates/tokio) as async runtime|
 |use_async_std | Use [async_std](https://crates.io/crates/async_std) as async runtime|
 |use_rustls | Use [rustls](https://crates.io/crates/rustls) for HTTPS and generate Certificates tailored to it|
-|hyper_rustls | `use_rustls`+`use_tokio` ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/async-acme/hyper_rustls) |
-|async_std_rustls | `use_rustls`+`use_async_std` ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/async-acme/async_std_rustls)|
+|hyper_rustls | `use_rustls`+`use_tokio` ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/async-acme/example_hyper_rustls.yml) |
+|async_std_rustls | `use_rustls`+`use_async_std` ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/async-acme/example_async_std_rustls.yml)|
 
 Without anything specified you will end up with *no async backend selected* or *no crypto backend selected*.
 If you use this crate for a library, please [reexport](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features) the appropriate features.
