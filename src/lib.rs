@@ -30,6 +30,13 @@ If you are using rustls, you probably want to just use [`rustls_helper::order`].
 [`acme::Account`]: ./acme/struct.Account.html
 */
 
+use base64::{
+    alphabet::URL_SAFE,
+    engine::{general_purpose::NO_PAD, GeneralPurpose},
+};
+
+const B64_URL_SAFE_NO_PAD: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, NO_PAD);
+
 pub mod acme;
 pub mod cache;
 mod crypto;

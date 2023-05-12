@@ -1,5 +1,3 @@
-use base64::URL_SAFE_NO_PAD;
-
 use serde_json::json;
 
 use crate::{
@@ -7,11 +5,13 @@ use crate::{
     cache::AcmeCache,
     crypto::EcdsaP256SHA256KeyPair,
     jose::{jose_req, key_authorization_sha256},
+    B64_URL_SAFE_NO_PAD,
 };
+use base64::Engine;
 use generic_async_http_client::Response;
 
 /// An Acout at an ACME provider. Used to query certificates and challanges
-/// 
+///
 /// 1. `load_or_create` your Account
 /// 2. place a `new_order` for your domains
 /// 3. `check_auth` for a single domain, if valid move to 6.
@@ -128,10 +128,7 @@ impl Account {
     }
     /// request a certificate to be signed
     pub async fn send_csr(&self, url: impl AsRef<str>, csr: Vec<u8>) -> Result<Order, AcmeError> {
-        let payload = format!(
-            "{{\"csr\":\"{}\"}}",
-            base64::encode_config(csr, URL_SAFE_NO_PAD)
-        );
+        let payload = format!("{{\"csr\":\"{}\"}}", B64_URL_SAFE_NO_PAD.encode(csr));
         let mut response = self.request(&url, &payload).await?;
         Ok(response.json().await?)
     }
