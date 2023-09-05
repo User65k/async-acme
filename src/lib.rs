@@ -29,6 +29,7 @@ If you are using rustls, you probably want to just use [`rustls_helper::order`].
 [`rustls_helper::order`]: ./rustls_helper/fn.order.html
 [`acme::Account`]: ./acme/struct.Account.html
 */
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 use base64::{
     alphabet::URL_SAFE,
@@ -43,4 +44,5 @@ mod crypto;
 mod jose;
 
 #[cfg(feature = "use_rustls")]
+#[cfg_attr(docsrs, doc(cfg(feature = "use_rustls")))]
 pub mod rustls_helper;

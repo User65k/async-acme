@@ -1,6 +1,6 @@
 [package]
 name = "async-acme"
-version = "0.3.2"
+version = "0.4.0"
 authors = ["User65k <15049544+User65k@users.noreply.github.com>"]
 edition = "2021"
 
@@ -11,7 +11,7 @@ keywords = ["letsencrypt", "acme", "async", "alpn", "tls"]
 readme = "README.md"
 
 [dependencies]
-generic-async-http-client = "0.3"
+generic-async-http-client = "0.4"
 base64 =  "0.21"
 thiserror = "1.0"
 log = "0.4"
@@ -23,7 +23,7 @@ async-trait = "0.1"
 
 rustls = { version = "0.21", optional = true}
 ring = {version = "0.16", features = ["std"], optional = true} #used by rustls
-rcgen = { version = "0.10", default-features = false, optional = true} #uses ring
+rcgen = { version = "0.11", default-features = false, optional = true} #uses ring
 rustls-pemfile = { version = "1.0", optional = true}
 
 openssl = { version = "0.10", optional = true }
@@ -55,7 +55,7 @@ tokio = { version = "1.0", features = ["io-std", "macros", "net", "rt-multi-thre
 hyper = { version = "0.14", features = ["full"] }
 futures-util = { version = "0.3.1", default-features = false }
 tokio-rustls = "0.24"
-pretty_env_logger = { version = "0.4.0", default-features = false }
+pretty_env_logger = { version = "0.5.0", default-features = false }
 futures-rustls = "0.24"
 
 [[example]]
@@ -71,3 +71,4 @@ required-features = ["async_std_rustls"]
 
 [package.metadata.docs.rs]
 features = ["use_rustls"]
+rustdoc-args = ["--cfg", "docsrs"]
