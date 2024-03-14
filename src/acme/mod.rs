@@ -120,7 +120,7 @@ pub enum AcmeError {
     HttpStatus(u16),
     #[cfg(feature = "use_rustls")]
     #[error("Could not create Certificate: {0}")]
-    RcgenError(#[from] rcgen::RcgenError),
+    RcgenError(#[from] rcgen::Error),
     #[error("error from cache: {0}")]
     Cache(Box<dyn CacheError>),
 }

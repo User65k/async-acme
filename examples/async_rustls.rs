@@ -32,7 +32,6 @@ fn main() {
 
     // Build TLS configuration.
     let mut cfg = ServerConfig::builder()
-        .with_safe_defaults()
         .with_no_client_auth()
         .with_cert_resolver(cres);
 
@@ -145,6 +144,11 @@ impl AcmeTaskRunner {
     }
 }
 
+impl std::fmt::Debug for ResolveServerCert {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResolveServerCert").finish()
+    }
+}
 impl ResolvesServerCert for ResolveServerCert {
     fn resolve(&self, client_hello: ClientHello) -> Option<Arc<CertifiedKey>> {
         if client_hello
@@ -155,16 +159,12 @@ impl ResolvesServerCert for ResolveServerCert {
             //return a not yet signed cert
             return match client_hello.server_name() {
                 None => None,
-                Some(domain) => self.acme_keys.read().unwrap().get(domain.into()).cloned(),
+                Some(domain) => self.acme_keys.read().unwrap().get(domain).cloned(),
             };
         };
 
         //do your thing to resolve your cert
-        if let Some(ks) = self.cert.read().unwrap().as_ref() {
-            Some(ks.clone())
-        } else {
-            None
-        }
+        self.cert.read().unwrap().as_ref().cloned()
     }
 }
 impl ResolveServerCert {

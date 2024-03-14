@@ -1,6 +1,9 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use x509_parser::parse_x509_certificate;
 
+#[cfg(all(feature = "use_rustls", feature = "use_openssl"))]
+compile_error!("Only one of the 'use_rustls' or 'use_openssl' features can be activated");
+
 #[cfg(feature = "use_rustls")]
 mod ring;
 #[cfg(feature = "use_rustls")]

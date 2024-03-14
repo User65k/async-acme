@@ -1,4 +1,4 @@
-/*! <span class="stab portability" title="This is supported on crate feature `use_rustls` only"><code>use_rustls</code></span> utilities to help with rustls.
+/*! utilities to help with rustls.
 
 ```
 use async_acme::{
@@ -157,7 +157,7 @@ where
 pub fn duration_until_renewal_attempt(cert_key: Option<&CertifiedKey>, err_cnt: usize) -> Duration {
     let valid_until = cert_key
         .and_then(|cert_key| cert_key.cert.first())
-        .and_then(|cert| get_cert_duration_left(cert.0.as_slice()).ok())
+        .and_then(|cert| get_cert_duration_left(cert).ok())
         .unwrap_or_default();
 
     let wait_secs = valid_until / 2;
@@ -173,7 +173,7 @@ pub enum OrderError {
     Acme(#[from] AcmeError),
     #[cfg(feature = "use_rustls")]
     #[error("certificate generation error: {0}")]
-    Rcgen(#[from] rcgen::RcgenError),
+    Rcgen(#[from] rcgen::Error),
     #[error("bad order object: {0:?}")]
     BadOrder(Order),
     #[error("bad auth object: {0:?}")]

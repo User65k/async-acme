@@ -4,30 +4,29 @@ use async_acme::{
 };
 use tokio::time::sleep;
 
-use async_stream::stream;
-use core::task::{Context, Poll};
-use futures_util::stream::Stream;
 use hyper::{
-    service::{make_service_fn, service_fn},
-    Body, Method, Request, Response, Server, StatusCode,
+    service::service_fn,
+    body::Incoming as Body, Method, Request, Response, StatusCode,
 };
 use std::{
     collections::HashMap,
     io,
     path::PathBuf,
-    pin::Pin,
     sync::{Arc, RwLock, Weak},
     vec::Vec,
 };
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use tokio_rustls::{
     rustls::{
         server::{ClientHello, ResolvesServerCert},
         sign::CertifiedKey,
         ServerConfig,
     },
-    server::TlsStream,
     TlsAcceptor,
+};
+use hyper_util::{
+    rt::{TokioExecutor, TokioIo},
+    server::conn::auto,
 };
 
 #[tokio::main]
@@ -39,7 +38,6 @@ async fn main() {
 
     // Build TLS configuration.
     let mut cfg = ServerConfig::builder()
-        .with_safe_defaults()
         .with_no_client_auth()
         .with_cert_resolver(cres);
 
@@ -66,24 +64,23 @@ async fn main() {
     // Create a TCP listener via tokio.
     let addr = "0.0.0.0:443";
     let tcp = TcpListener::bind(&addr).await.expect("bind failed");
-    let tls_acceptor = TlsAcceptor::from(tls_cfg);
+    let tls_acceptor = Arc::new(TlsAcceptor::from(tls_cfg));
     // Prepare a long-running future stream to accept and serve clients.
-    let incoming_tls_stream = stream! {
-        loop {
-            let (socket, _) = tcp.accept().await?;
-            let stream = tls_acceptor.accept(socket);
-            yield stream.await;
-        }
-    };
-    let service = make_service_fn(|_| async { Ok::<_, io::Error>(service_fn(echo)) });
-    let server = Server::builder(HyperAcceptor {
-        acceptor: Box::pin(incoming_tls_stream),
-    })
-    .serve(service);
+    while let Ok((stream, _)) = tcp.accept().await {
+        let tls_acceptor = tls_acceptor.clone();
+        tokio::spawn(async move {
+            let stream = tls_acceptor.accept(stream).await.expect("tls handshake");
+            auto::Builder::new(TokioExecutor::new())
+                .serve_connection(
+                    TokioIo::new(stream),
+                        service_fn(echo),
+                    )
+                    .await.expect("serve_connection");
+        });
+    }
 
     // Run the future, keep going until an error occurs.
     println!("Starting to serve on https://{}.", addr);
-    server.await.expect("server failed");
 }
 struct AcmeTaskRunner {
     /// resolver to update with a new cert
@@ -167,6 +164,11 @@ impl AcmeTaskRunner {
     }
 }
 
+impl std::fmt::Debug for ResolveServerCert {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResolveServerCert").finish()
+    }
+}
 impl ResolvesServerCert for ResolveServerCert {
     fn resolve(&self, client_hello: ClientHello) -> Option<Arc<CertifiedKey>> {
         if client_hello
@@ -192,16 +194,16 @@ impl ResolveServerCert {
     }
 }
 
-async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
-    let mut response = Response::new(Body::empty());
+async fn echo(req: Request<Body>) -> Result<Response<String>, hyper::Error> {
+    let mut response = Response::new(String::new());
     match (req.method(), req.uri().path()) {
         // Help route.
         (&Method::GET, "/") => {
-            *response.body_mut() = Body::from("Try POST /echo\n");
+            *response.body_mut() = "Try POST /echo\n".to_string();
         }
         // Echo service route.
         (&Method::POST, "/echo") => {
-            *response.body_mut() = req.into_body();
+            *response.body_mut() = "This was once returning the request body\n".to_string();
         }
         // Catch-all 404.
         _ => {
@@ -209,20 +211,4 @@ async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
         }
     };
     Ok(response)
-}
-
-struct HyperAcceptor<'a> {
-    acceptor: Pin<Box<dyn Stream<Item = Result<TlsStream<TcpStream>, io::Error>> + 'a>>,
-}
-
-impl hyper::server::accept::Accept for HyperAcceptor<'_> {
-    type Conn = TlsStream<TcpStream>;
-    type Error = io::Error;
-
-    fn poll_accept(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context,
-    ) -> Poll<Option<Result<Self::Conn, Self::Error>>> {
-        Pin::new(&mut self.acceptor).poll_next(cx)
-    }
 }
