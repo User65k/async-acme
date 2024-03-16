@@ -11,7 +11,7 @@ keywords = ["letsencrypt", "acme", "async", "alpn", "tls"]
 readme = "README.md"
 
 [dependencies]
-generic-async-http-client = "0.4"
+generic-async-http-client = "0.5"
 base64 =  "0.22"
 thiserror = "1.0"
 log = "0.4"
@@ -40,7 +40,7 @@ tokio = {version = "1.6", optional=true}
 [features]
 use_rustls = ["generic-async-http-client/rustls", "rustls", "ring", "rcgen/pem", "rcgen/ring", "rustls-pemfile"]
 use_async_std = ["async-std", "generic-async-http-client/use_async_h1"]
-use_tokio = ["tokio/fs", "generic-async-http-client/use_hyper"]
+use_tokio = ["tokio/fs", "tokio/time", "generic-async-http-client/use_hyper"]
 
 use_openssl = ["openssl","native-tls"]
 
