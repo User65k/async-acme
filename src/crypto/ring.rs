@@ -1,5 +1,5 @@
 use rcgen::{
-    Certificate, CertificateParams, CustomExtension, DistinguishedName, RcgenError,
+    Certificate, CertificateParams, CustomExtension, DistinguishedName, Error as RcgenError,
     PKCS_ECDSA_P256_SHA256,
 };
 use ring::{
@@ -10,8 +10,9 @@ use ring::{
 };
 
 use rustls::{
-    sign::{any_ecdsa_type, CertifiedKey, SigningKey},
-    PrivateKey,
+    sign::{CertifiedKey, SigningKey},
+    crypto::ring::sign::any_ecdsa_type,
+    pki_types::PrivateKeyDer,
 };
 
 use std::sync::Arc;
@@ -22,7 +23,7 @@ pub struct EcdsaP256SHA256KeyPair(EcdsaKeyPair);
 impl EcdsaP256SHA256KeyPair {
     pub fn load(pkcs8: &[u8]) -> Result<EcdsaP256SHA256KeyPair, ()> {
         let alg = &ECDSA_P256_SHA256_FIXED_SIGNING;
-        EcdsaKeyPair::from_pkcs8(alg, pkcs8)
+        EcdsaKeyPair::from_pkcs8(alg, pkcs8, &SystemRandom::new())
             .map_err(|_| ())
             .map(EcdsaP256SHA256KeyPair)
     }
@@ -50,9 +51,9 @@ pub fn gen_acme_cert(domains: Vec<String>, acme_hash: &[u8]) -> Result<Certified
     params.alg = &PKCS_ECDSA_P256_SHA256;
     params.custom_extensions = vec![CustomExtension::new_acme_identifier(acme_hash)];
     let cert = Certificate::from_params(params)?;
-    let key = any_ecdsa_type(&PrivateKey(cert.serialize_private_key_der())).unwrap();
+    let key = any_ecdsa_type(&PrivateKeyDer::Pkcs8(cert.serialize_private_key_der().into())).unwrap();
     Ok(CertifiedKey::new(
-        vec![rustls::Certificate(cert.serialize_der()?)],
+        vec![cert.serialize_der()?.into()],
         key,
     ))
 }
@@ -67,7 +68,7 @@ impl CertBuilder {
         params.distinguished_name = DistinguishedName::new();
         params.alg = &PKCS_ECDSA_P256_SHA256;
         let cert = Certificate::from_params(params)?;
-        let pk = any_ecdsa_type(&PrivateKey(cert.serialize_private_key_der())).unwrap();
+        let pk = any_ecdsa_type(&PrivateKeyDer::Pkcs8(cert.serialize_private_key_der().into())).unwrap();
 
         Ok(CertBuilder { cert, pk })
     }
@@ -79,9 +80,7 @@ impl CertBuilder {
     }
     pub fn sign(self, mut pem_cert: &[u8]) -> Result<CertifiedKey, ()> {
         let cert_chain = rustls_pemfile::certs(&mut pem_cert)
-            .map_err(|_| ())?
-            .drain(..)
-            .map(rustls::Certificate)
+            .filter_map(|e|e.ok())
             .collect();
         let cert_key = CertifiedKey::new(cert_chain, self.pk);
         Ok(cert_key)

@@ -57,15 +57,19 @@ pub enum ChallengeType {
 pub enum Order {
     /// [`Auth`] for authorizations must be completed
     Pending {
+        /// URLs for ([`Account::check_auth`](./struct.Account.html#method.check_auth))
         authorizations: Vec<String>,
+        /// URL to send CSR to
         finalize: String,
     },
     /// [`Auth`] is done. CSR can be sent ([`Account::send_csr`](./struct.Account.html#method.send_csr))
     Ready {
+        /// URL to send CSR to
         finalize: String,
     },
     /// CSR is done. Certificate can be downloaded ([`Account::obtain_certificate`](./struct.Account.html#method.obtain_certificate))
     Valid {
+        /// URL to fetch the final Certificate
         certificate: String,
     },
     Invalid,
@@ -80,7 +84,9 @@ pub enum Order {
 pub enum Auth {
     /// challange must be triggered
     Pending {
+        /// host to authenticate
         identifier: Identifier,
+        /// challenges to complete in order to authenticate
         challenges: Vec<Challenge>,
     },
     /// ownership is proven
@@ -120,7 +126,7 @@ pub enum AcmeError {
     HttpStatus(u16),
     #[cfg(feature = "use_rustls")]
     #[error("Could not create Certificate: {0}")]
-    RcgenError(#[from] rcgen::RcgenError),
+    RcgenError(#[from] rcgen::Error),
     #[error("error from cache: {0}")]
     Cache(Box<dyn CacheError>),
 }
@@ -137,4 +143,89 @@ fn get_header(response: &Response, header: &'static str) -> Result<String, AcmeE
         .header(header)
         .and_then(|hv| hv.try_into().ok())
         .ok_or(AcmeError::MissingHeader(header))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::*;
+    #[test]
+    fn discover() {
+        async fn server(listener: TcpListener) -> std::io::Result<bool> {
+            let (mut stream, _) = listener.accept().await?;
+            assert_stream(&mut stream, b"GET /directory HTTP").await?;
+
+            let body = format!(
+                r##"{{
+                "keyChange": "host/key-change",
+                "meta": {{
+                  "caaIdentities": [
+                    "letsencrypt.org"
+                  ],
+                  "termsOfService": "https://letsencrypt.org/documents/LE-SA-v1.3-September-21-2022.pdf",
+                  "website": "https://letsencrypt.org/docs/staging-environment/"
+                }},
+                "newAccount": "host/new-acct",
+                "newNonce": "host/new-nonce",
+                "newOrder": "host/new-order",
+                "q3Eo-_fidjY": "https://community.letsencrypt.org/t/adding-random-entries-to-the-directory/33417",
+                "renewalInfo": "https://acme-staging-v02.api.letsencrypt.org/draft-ietf-acme-ari-02/renewalInfo/",
+                "revokeCert": "host/revoke-cert"
+              }}"##
+            );
+
+            stream
+                .write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type:  application/json\r\n\r\n{}", body.len(),body).as_bytes())
+                .await?;
+
+            Ok(true)
+        }
+        block_on(async {
+            let (listener, port, host) = listen_somewhere().await?;
+            let t = spawn(server(listener));
+
+            let d = Directory::discover(&format!("http://{}:{}/directory", host, port)).await?;
+            assert_eq!(d.new_account, "host/new-acct");
+            assert_eq!(d.new_nonce, "host/new-nonce");
+            assert_eq!(d.new_order, "host/new-order");
+
+            assert!(t.await?, "not cool");
+            Ok(())
+        });
+    }
+    pub async fn return_nounce(listener: &TcpListener) -> std::io::Result<bool> {
+        let (mut stream, _) = listener.accept().await?;
+        assert_stream(&mut stream, b"GET /acme/new-nonce HTTP").await?;
+        stream
+            .write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nreplay-nonce: abc\r\n\r\n")
+            .await?;
+        close(stream).await?;
+        Ok(true)
+    }
+    pub fn new_dir(host: &str, port: u16) -> Directory {
+        let new_nonce = format!("http://{}:{}/acme/new-nonce", host, port);
+        let new_account = format!("http://{}:{}/acme/new-acct", host, port);
+        let new_order = format!("http://{}:{}/acme/new-order", host, port);
+        Directory {
+            new_nonce,
+            new_account,
+            new_order,
+        }
+    }
+    #[test]
+    fn nonce() {
+        async fn server(listener: TcpListener) -> std::io::Result<bool> {
+            return_nounce(&listener).await
+        }
+        block_on(async {
+            let (listener, port, host) = listen_somewhere().await?;
+            let t = spawn(server(listener));
+
+            let d = new_dir(&host, port);
+            assert_eq!(d.nonce().await?, "abc");
+
+            assert!(t.await?, "not cool");
+            Ok(())
+        });
+    }
 }
