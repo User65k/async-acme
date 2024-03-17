@@ -226,6 +226,8 @@ mod test {
                 .write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nLocation: abc\r\n\r\n")
                 .await?;
 
+            close(stream).await?;
+
             Ok(true)
         }
         block_on(async {
@@ -283,6 +285,8 @@ mod test {
             stream
                 .write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type:  application/json\r\n\r\n{}", body.len(),body).as_bytes())
                 .await?;
+
+            close(stream).await?;
 
             Ok(true)
         }
@@ -344,6 +348,8 @@ mod test {
             stream
                 .write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type:  application/json\r\n\r\n{}", body.len(),body).as_bytes())
                 .await?;
+
+            close(stream).await?;
             Ok(true)
         }
         block_on(async {
@@ -405,6 +411,8 @@ mod test {
             stream
                 .write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type:  application/json\r\n\r\n{}", body.len(),body).as_bytes())
                 .await?;
+
+            close(stream).await?;
 
             Ok(true)
         }

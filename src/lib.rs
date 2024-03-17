@@ -88,6 +88,14 @@ pub(crate) mod test {
         let jh = tokio::task::spawn(fut);
         async { jh.await.expect("spawn failed") }
     }
+    pub(crate) async fn close(mut stream: TcpStream) -> std::io::Result<()> {
+        stream.flush().await?;
+        #[cfg(feature = "use_tokio")]
+        stream.shutdown().await?;
+        #[cfg(feature = "use_async_std")]
+        stream.shutdown(async_std::net::Shutdown::Both)?;
+        Ok(())
+    }
 
     pub(crate) async fn assert_stream(
         stream: &mut TcpStream,

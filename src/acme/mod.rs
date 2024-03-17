@@ -199,6 +199,7 @@ mod test {
         stream
             .write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nreplay-nonce: abc\r\n\r\n")
             .await?;
+        close(stream).await?;
         Ok(true)
     }
     pub fn new_dir(host: &str, port: u16) -> Directory {
