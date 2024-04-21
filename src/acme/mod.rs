@@ -228,4 +228,14 @@ mod test {
             Ok(())
         });
     }
+    #[test]
+    fn lets_encrypt_staging() {
+        block_on(async {
+            let d = Directory::discover(LETS_ENCRYPT_STAGING_DIRECTORY).await?;
+            assert!(!d.new_account.is_empty());
+            assert!(!d.new_order.is_empty());
+            assert!(!d.nonce().await.unwrap().is_empty());
+            Ok(())
+        });
+    }
 }
