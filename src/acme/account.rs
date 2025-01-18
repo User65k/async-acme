@@ -156,6 +156,7 @@ impl Account {
 }
 
 #[cfg(test)]
+#[cfg(any(feature = "use_async_std", feature = "use_tokio"))]
 mod test {
     use std::collections::HashMap;
 

@@ -1,5 +1,5 @@
 use rcgen::{
-    Certificate, CertificateParams, CustomExtension, DistinguishedName, Error as RcgenError,
+    CertificateParams, CustomExtension, DistinguishedName, Error as RcgenError,
     PKCS_ECDSA_P256_SHA256,
 };
 use ring::{
@@ -10,12 +10,10 @@ use ring::{
 };
 
 use rustls::{
-    sign::{CertifiedKey, SigningKey},
+    sign::CertifiedKey,
     crypto::ring::sign::any_ecdsa_type,
     pki_types::PrivateKeyDer,
 };
-
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct EcdsaP256SHA256KeyPair(EcdsaKeyPair);
@@ -46,43 +44,42 @@ pub fn sha256_hasher() -> Context {
 pub fn sha256(data: &[u8]) -> impl AsRef<[u8]> {
     digest(&DoSHA256, data)
 }
+/// generate a self signed certificate to use during the TLS challange
 pub fn gen_acme_cert(domains: Vec<String>, acme_hash: &[u8]) -> Result<CertifiedKey, RcgenError> {
-    let mut params = CertificateParams::new(domains);
-    params.alg = &PKCS_ECDSA_P256_SHA256;
+    let mut params = CertificateParams::new(domains)?;
     params.custom_extensions = vec![CustomExtension::new_acme_identifier(acme_hash)];
-    let cert = Certificate::from_params(params)?;
-    let key = any_ecdsa_type(&PrivateKeyDer::Pkcs8(cert.serialize_private_key_der().into())).unwrap();
+    let key_pair = rcgen::KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256)?;
+    let cert = params.self_signed(&key_pair)?;
+    let key = any_ecdsa_type(&PrivateKeyDer::Pkcs8(key_pair.serialized_der().into())).unwrap();
     Ok(CertifiedKey::new(
-        vec![cert.serialize_der()?.into()],
+        vec![cert.into()],
         key,
     ))
 }
 
 pub struct CertBuilder {
-    cert: Certificate,
-    pk: Arc<dyn SigningKey>,
+    params: CertificateParams,
+    kp: rcgen::KeyPair,
 }
 impl CertBuilder {
     pub fn gen_new(domains: Vec<String>) -> Result<CertBuilder, RcgenError> {
-        let mut params = CertificateParams::new(domains);
+        let mut params = CertificateParams::new(domains)?;
         params.distinguished_name = DistinguishedName::new();
-        params.alg = &PKCS_ECDSA_P256_SHA256;
-        let cert = Certificate::from_params(params)?;
-        let pk = any_ecdsa_type(&PrivateKeyDer::Pkcs8(cert.serialize_private_key_der().into())).unwrap();
-
-        Ok(CertBuilder { cert, pk })
+        let kp = rcgen::KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256)?;
+        Ok(CertBuilder { params, kp })
     }
     pub fn get_csr(&self) -> Result<Vec<u8>, RcgenError> {
-        self.cert.serialize_request_der()
+        Ok(self.params.serialize_request(&self.kp)?.der().to_vec())
     }
     pub fn private_key_as_pem_pkcs8(&self) -> String {
-        self.cert.serialize_private_key_pem()
+        self.kp.serialize_pem()
     }
     pub fn sign(self, mut pem_cert: &[u8]) -> Result<CertifiedKey, ()> {
         let cert_chain = rustls_pemfile::certs(&mut pem_cert)
             .filter_map(|e|e.ok())
             .collect();
-        let cert_key = CertifiedKey::new(cert_chain, self.pk);
+        let pk = any_ecdsa_type(&PrivateKeyDer::Pkcs8(self.kp.serialized_der().into())).unwrap();
+        let cert_key = CertifiedKey::new(cert_chain, pk);
         Ok(cert_key)
     }
 }

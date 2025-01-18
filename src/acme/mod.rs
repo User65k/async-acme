@@ -146,6 +146,7 @@ fn get_header(response: &Response, header: &'static str) -> Result<String, AcmeE
 }
 
 #[cfg(test)]
+#[cfg(any(feature = "use_async_std", feature = "use_tokio"))]
 mod test {
     use super::*;
     use crate::test::*;

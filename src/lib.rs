@@ -48,6 +48,7 @@ mod jose;
 pub mod rustls_helper;
 
 #[cfg(test)]
+#[cfg(any(feature = "use_async_std", feature = "use_tokio"))]
 pub(crate) mod test {
     #[cfg(feature = "use_async_std")]
     pub(crate) use async_std::{
