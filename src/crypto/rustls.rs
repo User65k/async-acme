@@ -1,7 +1,15 @@
+#[cfg(feature = "rustls_aws_lc_rs")]
+use aws_lc_rs::{
+    digest::{digest, Context, SHA256 as DoSHA256},
+    error::Unspecified,
+    rand::SystemRandom,
+    signature::{EcdsaKeyPair, KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING},
+};
 use rcgen::{
     CertificateParams, CustomExtension, DistinguishedName, Error as RcgenError,
     PKCS_ECDSA_P256_SHA256,
 };
+#[cfg(feature = "rustls_ring")]
 use ring::{
     digest::{digest, Context, SHA256 as DoSHA256},
     error::Unspecified,
@@ -9,11 +17,11 @@ use ring::{
     signature::{EcdsaKeyPair, KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING},
 };
 
-use rustls::{
-    sign::CertifiedKey,
-    crypto::ring::sign::any_ecdsa_type,
-    pki_types::PrivateKeyDer,
-};
+#[cfg(feature = "rustls_aws_lc_rs")]
+use rustls::crypto::aws_lc_rs::sign::any_ecdsa_type;
+#[cfg(feature = "rustls_ring")]
+use rustls::crypto::ring::sign::any_ecdsa_type;
+use rustls::{pki_types::PrivateKeyDer, sign::CertifiedKey};
 
 #[derive(Debug)]
 pub struct EcdsaP256SHA256KeyPair(EcdsaKeyPair);
@@ -21,9 +29,14 @@ pub struct EcdsaP256SHA256KeyPair(EcdsaKeyPair);
 impl EcdsaP256SHA256KeyPair {
     pub fn load(pkcs8: &[u8]) -> Result<EcdsaP256SHA256KeyPair, ()> {
         let alg = &ECDSA_P256_SHA256_FIXED_SIGNING;
-        EcdsaKeyPair::from_pkcs8(alg, pkcs8, &SystemRandom::new())
-            .map_err(|_| ())
-            .map(EcdsaP256SHA256KeyPair)
+        EcdsaKeyPair::from_pkcs8(
+            alg,
+            pkcs8,
+            #[cfg(feature = "rustls_ring")]
+            &SystemRandom::new(),
+        )
+        .map_err(|_| ())
+        .map(EcdsaP256SHA256KeyPair)
     }
     pub fn generate() -> Result<impl AsRef<[u8]>, ()> {
         let alg = &ECDSA_P256_SHA256_FIXED_SIGNING;
@@ -51,10 +64,7 @@ pub fn gen_acme_cert(domains: Vec<String>, acme_hash: &[u8]) -> Result<Certified
     let key_pair = rcgen::KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256)?;
     let cert = params.self_signed(&key_pair)?;
     let key = any_ecdsa_type(&PrivateKeyDer::Pkcs8(key_pair.serialized_der().into())).unwrap();
-    Ok(CertifiedKey::new(
-        vec![cert.into()],
-        key,
-    ))
+    Ok(CertifiedKey::new(vec![cert.into()], key))
 }
 
 pub struct CertBuilder {
@@ -76,7 +86,7 @@ impl CertBuilder {
     }
     pub fn sign(self, mut pem_cert: &[u8]) -> Result<CertifiedKey, ()> {
         let cert_chain = rustls_pemfile::certs(&mut pem_cert)
-            .filter_map(|e|e.ok())
+            .filter_map(|e| e.ok())
             .collect();
         let pk = any_ecdsa_type(&PrivateKeyDer::Pkcs8(self.kp.serialized_der().into())).unwrap();
         let cert_key = CertifiedKey::new(cert_chain, pk);

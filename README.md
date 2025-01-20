@@ -19,9 +19,9 @@ You need to specify via features what crates are used in the actual work.
 |---|---|
 |use_tokio | Use [tokio](https://crates.io/crates/tokio) as async runtime|
 |use_async_std | Use [async_std](https://crates.io/crates/async_std) as async runtime|
-|use_rustls | Use [rustls](https://crates.io/crates/rustls) for HTTPS and generate Certificates tailored to it|
-|hyper_rustls | `use_rustls`+`use_tokio` ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/async-acme/example_hyper_rustls.yml) |
-|async_std_rustls | `use_rustls`+`use_async_std` ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/async-acme/example_async_std_rustls.yml)|
+|rustls_ring | Use [rustls](https://crates.io/crates/rustls) and [ring](https://crates.io/crates/ring) for HTTPS and generate Certificates tailored to it|
+|rustls_aws_lc_rs | Use [rustls](https://crates.io/crates/rustls) and [aws-lc-rs](https://crates.io/crates/aws-lc-rs) for HTTPS and generate Certificates tailored to it|
+| use_openssl | Use [openssl](https://crates.io/crates/openssl) for the CSR and [native-tls](https://crates.io/crates/native-tls) for HTTPS |
 
 Without anything specified you will end up with *no async backend selected* or *no crypto backend selected*.
 If you use this crate for a library, please [reexport](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features) the appropriate features.
@@ -48,8 +48,8 @@ codegen-units = 1
 These query certs from Let's Encrypt's Staging endpoint.
 In order for them to work you need to change the email and domain from `example.com` to your own.
 
-1. Hyper server with rustls: `cargo run --example hyper_rustls --features="hyper_rustls"`
-2. async-std server with rustls: `cargo run --example async_rustls --features="async_std_rustls"`
+1. Hyper server with rustls: `cargo run --example hyper_rustls --features="rustls_ring,use_tokio"` ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/async-acme/example_hyper_rustls.yml)
+2. async-std server with rustls: `cargo run --example async_rustls --features="rustls_ring,use_async_std"` ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/async-acme/example_async_std_rustls.yml)
 
 # Plans
 
