@@ -11,7 +11,7 @@ keywords = ["letsencrypt", "acme", "async", "alpn", "tls"]
 readme = "README.md"
 
 [dependencies]
-generic-async-http-client = "0.6"
+generic-async-http-client = "^0.6.2"
 base64 =  "0.22"
 thiserror = "2.0"
 log = "0.4"
