@@ -43,11 +43,12 @@ pub mod cache;
 mod crypto;
 mod jose;
 
-#[cfg(feature = "use_rustls")]
-#[cfg_attr(docsrs, doc(cfg(feature = "use_rustls")))]
+#[cfg(any(feature = "rustls_ring", feature = "rustls_aws_lc_rs"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "rustls_ring", feature = "rustls_aws_lc_rs"))))]
 pub mod rustls_helper;
 
 #[cfg(test)]
+#[cfg(any(feature = "use_async_std", feature = "use_tokio"))]
 pub(crate) mod test {
     #[cfg(feature = "use_async_std")]
     pub(crate) use async_std::{

@@ -124,7 +124,7 @@ pub enum AcmeError {
     NoTlsAlpn01Challenge,
     #[error("HTTP Status {0} indicates error")]
     HttpStatus(u16),
-    #[cfg(feature = "use_rustls")]
+    #[cfg(any(feature = "rustls_ring", feature = "rustls_aws_lc_rs"))]
     #[error("Could not create Certificate: {0}")]
     RcgenError(#[from] rcgen::Error),
     #[error("error from cache: {0}")]
@@ -146,6 +146,7 @@ fn get_header(response: &Response, header: &'static str) -> Result<String, AcmeE
 }
 
 #[cfg(test)]
+#[cfg(any(feature = "use_async_std", feature = "use_tokio"))]
 mod test {
     use super::*;
     use crate::test::*;

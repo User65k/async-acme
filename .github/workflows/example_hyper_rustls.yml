@@ -17,4 +17,4 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build example hyper_rustls
-      run: cargo build --features hyper_rustls --example hyper_rustls --verbose
+      run: cargo build -F "rustls_ring,use_tokio" --example hyper_rustls
