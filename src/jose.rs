@@ -36,21 +36,48 @@ pub async fn jose_req(
         payload,
         signature,
     };
-    let req = Request::post(url)
-        .json(&body)?
-        .set_header("Content-Type", "application/jose+json")?;
-    log::debug!("{:?}", req);
-    let mut response = req.exec().await?;
-    if response.status_code() > 299 {
-        if let Ok(s) = response.text().await {
-            log::error!("{}: HTTP {} - {}", url, response.status_code(), s);
-        } else {
-            log::error!("{}: HTTP {}", url, response.status_code());
+    loop {
+        let req = Request::post(url)
+            .json(&body)?
+            .set_header("Content-Type", "application/jose+json")?;
+        log::debug!("{:?}", req);
+        let mut response = req.exec().await?;
+        break match response.status_code() {
+            100..300 => Ok(response),
+            redir @ 300..400 => Err(AcmeError::HttpStatus(redir)), //we are not discovering - there should be no redirect
+            code => {
+                if let Ok(s) = response.json::<ProblemDetails>().await {
+                    if s.t == "urn:ietf:params:acme:error:rateLimited" /*&& matches!(code, 500..600)*/ {
+                        //HTTP 5xx error -> try again after some time
+                        if let Some(retry) = response
+                            .header("retry-after")
+                            .and_then(|h| std::str::from_utf8(h.as_ref()).ok())
+                            .and_then(|s| s.parse().ok())
+                        {
+                            log::info!("Received Retry-After header, waiting {retry} seconds...");
+                            crate::sleep(std::time::Duration::from_secs(retry)).await;
+                            continue;
+                        }
+                    }
+                    log::error!("{}: HTTP {} - {:?} {:?}", url, code, s.title, s.detail);
+                } else {
+                    log::error!("{}: HTTP {}", url, code);
+                }
+                Err(AcmeError::HttpStatus(code))
+            },
         }
-        return Err(AcmeError::HttpStatus(response.status_code()));
     }
-    Ok(response)
 }
+
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ProblemDetails {
+    #[serde(rename = "type")]
+    t: String,
+    title: Option<String>,
+    detail: Option<String>,
+}
+
 pub(crate) fn key_authorization_sha256(
     key: &EcdsaP256SHA256KeyPair,
     token: &str,
