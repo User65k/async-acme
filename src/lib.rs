@@ -43,6 +43,14 @@ pub mod cache;
 mod crypto;
 mod jose;
 
+
+#[cfg(feature = "use_async_std")]
+use async_std::task::sleep;
+#[cfg(feature = "use_tokio")]
+use tokio::time::sleep;
+#[cfg(not(any(feature = "use_async_std",feature = "use_tokio")))]
+async fn sleep(_: std::time::Duration) {}
+
 #[cfg(any(feature = "rustls_ring", feature = "rustls_aws_lc_rs"))]
 #[cfg_attr(docsrs, doc(cfg(any(feature = "rustls_ring", feature = "rustls_aws_lc_rs"))))]
 pub mod rustls_helper;

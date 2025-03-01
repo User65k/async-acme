@@ -1,10 +1,15 @@
-/*! Automatic Certificate Management Environment (ACME) acording to [rfc8555](https://datatracker.ietf.org/doc/html/rfc8555)
+/*! Automatic Certificate Management Environment (ACME) according to [rfc8555](https://datatracker.ietf.org/doc/html/rfc8555)
 
 */
 use generic_async_http_client::{Error as HTTPError, Request, Response};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use thiserror::Error;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use x509_parser::{parse_x509_certificate, prelude::X509Certificate};
+
+#[cfg(feature="ari")]
+mod ari;
 
 mod account;
 pub use account::Account;
@@ -14,7 +19,7 @@ use crate::cache::CacheError;
 /// URI of <https://letsencrypt.org/> staging Directory. Use this for tests. See <https://letsencrypt.org/docs/staging-environment/>
 pub const LETS_ENCRYPT_STAGING_DIRECTORY: &str =
     "https://acme-staging-v02.api.letsencrypt.org/directory";
-/// URI of <https://letsencrypt.org/> prod Directory. Certificates aquired from this are trusted by most Browsers.
+/// URI of <https://letsencrypt.org/> prod Directory. Certificates acquired from this are trusted by most Browsers.
 pub const LETS_ENCRYPT_PRODUCTION_DIRECTORY: &str =
     "https://acme-v02.api.letsencrypt.org/directory";
 /// ALPN string used by ACME-TLS challanges
@@ -27,6 +32,8 @@ pub struct Directory {
     pub new_nonce: String,
     pub new_account: String,
     pub new_order: String,
+    #[cfg(feature="ari")]
+    pub renewal_info: Option<String>,
 }
 
 impl Directory {
@@ -38,6 +45,40 @@ impl Directory {
         let response = Request::get(self.new_nonce.as_str()).exec().await?;
         get_header(&response, "replay-nonce")
     }
+    /// get the duration when the next ACME refresh should be done
+    pub async fn duration_until_renewal_attempt(&self, cert: &[u8], err_cnt: usize) -> Duration {
+        let cert = match parse_x509_certificate(cert) {
+            Ok((_, cert)) => cert,
+            Err(_err) => {
+                return Duration::default();
+            }
+        };
+        #[cfg(feature="ari")]
+        let wait_secs = match match self.renewal_info.as_deref() {
+            Some(uri) => ari::try_ari(uri, &cert).await,
+            None => None,
+        } {
+            Some(ari) => ari,
+            None => duration_till_not_after(&cert) / 2,
+        };
+        #[cfg(not(feature="ari"))]
+        let wait_secs = duration_till_not_after(&cert) / 2;
+        
+        match err_cnt {
+            0 => wait_secs,
+            err_cnt => wait_secs.max(Duration::from_secs(1 << err_cnt)),
+        }
+    }
+}
+
+fn duration_till_not_after(cert: &X509Certificate) -> Duration {
+    let valid_until = cert.validity().not_after.timestamp() as u64;
+
+    let start = SystemTime::now();
+    let since_the_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+    Duration::from_secs(valid_until).saturating_sub(since_the_epoch)
 }
 
 /// Challange used to prove ownership over a domain
@@ -170,7 +211,6 @@ mod test {
                 "newNonce": "host/new-nonce",
                 "newOrder": "host/new-order",
                 "q3Eo-_fidjY": "https://community.letsencrypt.org/t/adding-random-entries-to-the-directory/33417",
-                "renewalInfo": "https://acme-staging-v02.api.letsencrypt.org/draft-ietf-acme-ari-02/renewalInfo/",
                 "revokeCert": "host/revoke-cert"
               }}"##
             );
@@ -211,6 +251,7 @@ mod test {
             new_nonce,
             new_account,
             new_order,
+            renewal_info: None
         }
     }
     #[test]
@@ -239,4 +280,84 @@ mod test {
             Ok(())
         });
     }
+    #[cfg(feature="ari")]
+    #[test]
+    fn discover_ari() {
+        async fn server(listener: TcpListener) -> std::io::Result<bool> {
+            let (mut stream, _) = listener.accept().await?;
+            assert_stream(&mut stream, b"GET /directory HTTP").await?;
+
+            let body = format!(
+                r##"{{
+                "keyChange": "host/key-change",
+                "meta": {{
+                  "caaIdentities": [
+                    "letsencrypt.org"
+                  ],
+                  "termsOfService": "https://letsencrypt.org/documents/LE-SA-v1.3-September-21-2022.pdf",
+                  "website": "https://letsencrypt.org/docs/staging-environment/"
+                }},
+                "newAccount": "host/new-acct",
+                "newNonce": "host/new-nonce",
+                "newOrder": "host/new-order",
+                "q3Eo-_fidjY": "https://community.letsencrypt.org/t/adding-random-entries-to-the-directory/33417",
+                "revokeCert": "host/revoke-cert",
+                "renewalInfo": "host/ari"
+              }}"##
+            );
+
+            stream
+                .write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type:  application/json\r\n\r\n{}", body.len(),body).as_bytes())
+                .await?;
+
+
+            let (mut stream, _) = listener.accept().await?;
+            assert_stream(&mut stream, b"GET /directory HTTP").await?;
+
+            let body = format!(
+                r##"{{
+                "keyChange": "host/key-change",
+                "meta": {{
+                    "caaIdentities": [
+                    "letsencrypt.org"
+                    ],
+                    "termsOfService": "https://letsencrypt.org/documents/LE-SA-v1.3-September-21-2022.pdf",
+                    "website": "https://letsencrypt.org/docs/staging-environment/"
+                }},
+                "newAccount": "host/new-acct",
+                "newNonce": "host/new-nonce",
+                "newOrder": "host/new-order",
+                "q3Eo-_fidjY": "https://community.letsencrypt.org/t/adding-random-entries-to-the-directory/33417",
+                "revokeCert": "host/revoke-cert"
+                }}"##
+            );
+
+            stream
+                .write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type:  application/json\r\n\r\n{}", body.len(),body).as_bytes())
+                .await?;
+
+            Ok(true)
+        }
+        block_on(async {
+            let (listener, port, host) = listen_somewhere().await?;
+            let t = spawn(server(listener));
+
+            let d = Directory::discover(&format!("http://{}:{}/directory", host, port)).await?;
+            assert_eq!(d.new_account, "host/new-acct");
+            assert_eq!(d.new_nonce, "host/new-nonce");
+            assert_eq!(d.new_order, "host/new-order");
+            assert_eq!(d.renewal_info.as_ref().map(|s|s.as_str()), Some("host/ari"));
+
+
+            let d = Directory::discover(&format!("http://{}:{}/directory", host, port)).await?;
+            assert_eq!(d.new_account, "host/new-acct");
+            assert_eq!(d.new_nonce, "host/new-nonce");
+            assert_eq!(d.new_order, "host/new-order");
+            assert_eq!(d.renewal_info, None);
+
+            assert!(t.await?, "not cool");
+            Ok(())
+        });
+    }
+    
 }
